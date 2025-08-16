@@ -47,6 +47,8 @@ const fallbackProducts = [
 ];
 
 export function ProductGrid() {
+  const [showDebug, setShowDebug] = useState(false);
+  
   // Intentar primero Google Sheets, luego API backend
   const { data: sheetsProducts, isLoading: sheetsLoading, error: sheetsError } = useSheetsProducts();
   const { data: apiProducts = [], isLoading: apiLoading, error: apiError } = useProducts();
@@ -71,6 +73,17 @@ export function ProductGrid() {
   const isLoading = sheetsLoading || apiLoading;
   const error = sheetsError || apiError;
   const refreshMutation = sheetsProducts?.length > 0 ? refreshSheetsMutation : refreshApiMutation;
+  
+  // Debug info
+  const debugInfo = {
+    sheetsProducts: sheetsProducts?.length || 0,
+    apiProducts: apiProducts?.length || 0,
+    finalProducts: products?.length || 0,
+    isLoading,
+    error: error?.message || 'No error',
+    sheetsError: sheetsError?.message || 'No error',
+    apiError: apiError?.message || 'No error'
+  };
 
   const handleAddToCart = (product: any) => {
     if (product.stock <= 0) {
@@ -131,6 +144,35 @@ export function ProductGrid() {
 
   return (
     <div>
+      {/* Debug Panel */}
+      <div className="mb-4">
+        <Button 
+          onClick={() => setShowDebug(!showDebug)}
+          variant="outline"
+          size="sm"
+          className="mb-2"
+        >
+          {showDebug ? 'Ocultar' : 'Ver'} Debug Info
+        </Button>
+        
+        {showDebug && (
+          <div className="bg-gray-100 p-3 rounded text-xs space-y-1 font-mono">
+            <div><strong>📊 Estado:</strong></div>
+            <div>• Productos Google Sheets: {debugInfo.sheetsProducts}</div>
+            <div>• Productos API: {debugInfo.apiProducts}</div>
+            <div>• Productos finales: {debugInfo.finalProducts}</div>
+            <div>• Cargando: {debugInfo.isLoading ? 'Sí' : 'No'}</div>
+            <div><strong>❌ Errores:</strong></div>
+            <div>• Error general: {debugInfo.error}</div>
+            <div>• Error Sheets: {debugInfo.sheetsError}</div>
+            <div>• Error API: {debugInfo.apiError}</div>
+            <div><strong>🔍 Datos brutos:</strong></div>
+            <div>• sheetsProducts: {JSON.stringify(sheetsProducts?.slice(0, 2) || null).substring(0, 200)}...</div>
+            <div>• products: {JSON.stringify(products?.slice(0, 1) || null).substring(0, 200)}...</div>
+          </div>
+        )}
+      </div>
+
       {/* Filters and Refresh */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -160,8 +202,14 @@ export function ProductGrid() {
         </div>
       )}
 
+      {/* Status Info */}
+      <div className="mb-4 text-sm bg-blue-50 p-3 rounded">
+        📦 <strong>Estado actual:</strong> {isLoading ? 'Cargando...' : `${products.length} productos encontrados`}
+        {error && <span className="text-red-600"> | ❌ {error.message}</span>}
+      </div>
+
       {/* Product Grid */}
-      {!isLoading && products.length > 0 && (
+      {!isLoading && products && products.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
           {products.map((product) => (
             <Card 
@@ -293,7 +341,7 @@ export function ProductGrid() {
       )}
 
       {/* Empty State - should not happen with fallback */}
-      {!isLoading && products.length === 0 && (
+      {!isLoading && (!products || products.length === 0) && (
         <div className="text-center py-12">
           <p className="text-gray-600 mb-4">No hay productos disponibles en este momento.</p>
           <Button onClick={handleRefresh} variant="outline">
