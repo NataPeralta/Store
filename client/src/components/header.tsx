@@ -1,5 +1,6 @@
 import { ShoppingCart, Store } from 'lucide-react';
 import { useCart } from '@/contexts/cart-context';
+import { ConnectionStatus } from '@/components/connection-status';
 
 export function Header() {
   const { itemCount, openCart } = useCart();
@@ -16,6 +17,7 @@ export function Header() {
           </div>
           
           <div className="flex items-center space-x-4">
+            <ConnectionStatus />
             <button 
               onClick={openCart}
               data-testid="button-cart"

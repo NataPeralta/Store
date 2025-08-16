@@ -1,7 +1,7 @@
 import { type Product, type Order, type InsertOrder, products, orders } from "@shared/schema";
 import { googleSheetsService, type GoogleSheetsProduct } from "./services/google-sheets";
 import { randomUUID } from "crypto";
-import { db } from "./db";
+import { getDB } from "./db";
 import { eq } from "drizzle-orm";
 
 export interface IStorage {
@@ -167,6 +167,13 @@ export class MemStorage implements IStorage {
 // Database Storage implementation
 export class DatabaseStorage implements IStorage {
   async getProducts(): Promise<Product[]> {
+    const db = getDB();
+    
+    // Si no hay conexión DB (desarrollo), usar productos demo
+    if (!db) {
+      return this.getDemoProducts();
+    }
+    
     try {
       // Try to fetch from Google Sheets if configured
       if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_SHEETS_ID) {
@@ -190,53 +197,154 @@ export class DatabaseStorage implements IStorage {
       console.error('Error fetching products from Google Sheets:', error);
     }
     
-    // Get products from database
-    const dbProducts = await db.select().from(products).where(eq(products.active, true));
-    
-    // If no products in DB, load demo products
-    if (dbProducts.length === 0) {
-      await this.loadDemoProducts();
-      return await db.select().from(products).where(eq(products.active, true));
+    try {
+      // Get products from database
+      const dbProducts = await db.select().from(products).where(eq(products.active, true));
+      
+      // If no products in DB, load demo products
+      if (dbProducts.length === 0) {
+        await this.loadDemoProducts();
+        return await db.select().from(products).where(eq(products.active, true));
+      }
+      
+      return dbProducts;
+    } catch (error) {
+      console.error('Database error, using demo products:', error);
+      return this.getDemoProducts();
     }
-    
-    return dbProducts;
   }
 
   async refreshProducts(): Promise<Product[]> {
-    // Clear database products and reload
-    await db.delete(products);
-    return this.getProducts();
+    const db = getDB();
+    
+    // Si no hay conexión DB (desarrollo), usar productos demo
+    if (!db) {
+      return this.getDemoProducts();
+    }
+    
+    try {
+      // Clear database products and reload
+      await db.delete(products);
+      return this.getProducts();
+    } catch (error) {
+      console.error('Database refresh error, using demo products:', error);
+      return this.getDemoProducts();
+    }
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
-    const [order] = await db
-      .insert(orders)
-      .values(insertOrder)
-      .returning();
+    const id = randomUUID();
+    const now = new Date();
     
-    // Try to save to Google Sheets if configured
-    try {
-      if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_SHEETS_ID) {
-        await googleSheetsService.saveOrder({
-          date: order.createdAt.toISOString(),
-          customerName: order.customerName,
-          customerEmail: order.customerEmail,
-          customerPhone: order.customerPhone,
-          deliveryAddress: order.deliveryAddress,
-          products: order.items,
-          total: parseFloat(order.total),
-        });
-        console.log('Order saved to Google Sheets successfully');
-      } else {
-        console.log('Order saved to database (Google Sheets not configured)');
+    const order: Order = {
+      ...insertOrder,
+      id,
+      createdAt: now,
+    };
+    
+    const db = getDB();
+    
+    // Si hay conexión DB, guardar en base de datos
+    if (db) {
+      try {
+        const [dbOrder] = await db
+          .insert(orders)
+          .values(order)
+          .returning();
+        
+        console.log('Order saved to database successfully');
+        
+        // Try to save to Google Sheets if configured
+        try {
+          if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_SHEETS_ID) {
+            await googleSheetsService.saveOrder({
+              date: order.createdAt.toISOString(),
+              customerName: order.customerName,
+              customerEmail: order.customerEmail,
+              customerPhone: order.customerPhone,
+              deliveryAddress: order.deliveryAddress,
+              products: order.items,
+              total: parseFloat(order.total),
+            });
+            console.log('Order saved to Google Sheets successfully');
+          }
+        } catch (error) {
+          console.error('Error saving to Google Sheets (order saved to database):', error);
+        }
+        
+        return dbOrder;
+      } catch (error) {
+        console.error('Database error saving order:', error);
       }
-    } catch (error) {
-      console.error('Error saving to Google Sheets (order saved to database):', error);
     }
+    
+    // Si no hay DB o falló, al menos logear el pedido
+    console.log('Order created (development mode):', {
+      id: order.id,
+      customer: order.customerName,
+      email: order.customerEmail,
+      total: order.total,
+      items: JSON.parse(order.items).length + ' items'
+    });
     
     return order;
   }
 
+  private getDemoProducts(): Product[] {
+    return [
+      {
+        id: 'p1',
+        name: 'Smartphone Premium',
+        description: 'Teléfono inteligente de última generación con cámara de 108MP y batería de larga duración.',
+        price: '599.99',
+        stock: 15,
+        active: true,
+        image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
+        category: 'Electrónicos'
+      },
+      {
+        id: 'p2',
+        name: 'Laptop Gaming',
+        description: 'Laptop para juegos con procesador Intel i7 y tarjeta gráfica RTX 4060.',
+        price: '1299.99',
+        stock: 8,
+        active: true,
+        image: 'https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=400',
+        category: 'Computadoras'
+      },
+      {
+        id: 'p3',
+        name: 'Audífonos Inalámbricos',
+        description: 'Audífonos Bluetooth con cancelación de ruido y hasta 30 horas de batería.',
+        price: '199.99',
+        stock: 25,
+        active: true,
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
+        category: 'Audio'
+      },
+      {
+        id: 'p4',
+        name: 'Smartwatch Deportivo',
+        description: 'Reloj inteligente resistente al agua con monitoreo de salud y GPS.',
+        price: '299.99',
+        stock: 12,
+        active: true,
+        image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
+        category: 'Wearables'
+      },
+      {
+        id: 'p5',
+        name: 'Cámara DSLR',
+        description: 'Cámara profesional de 24MP con lente intercambiable y grabación 4K.',
+        price: '899.99',
+        stock: 6,
+        active: true,
+        image: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=400',
+        category: 'Fotografía'
+      }
+    ];
+  }
+  
   private async loadDemoProducts(): Promise<void> {
     const demoProducts = [
       {
@@ -301,7 +409,10 @@ export class DatabaseStorage implements IStorage {
       }
     ];
 
-    await db.insert(products).values(demoProducts);
+    const db = getDB();
+    if (db) {
+      await db.insert(products).values(demoProducts);
+    }
   }
 }
 

@@ -1,5 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Backend URL para Hostinger
+const BACKEND_URL = "https://nataperalta.com.ar";
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -12,11 +15,17 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Construir URL completa si es una ruta relativa
+  const fullUrl = url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+  
+  const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      "Content-Type": "application/json",
+      ...(data ? {} : {}),
+    },
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    mode: "cors",
   });
 
   await throwIfResNotOk(res);
@@ -29,8 +38,12 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
+    // Construir URL completa para query keys
+    const url = queryKey.join("/") as string;
+    const fullUrl = url.startsWith('http') ? url : `${BACKEND_URL}${url}`;
+    
+    const res = await fetch(fullUrl, {
+      mode: "cors",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

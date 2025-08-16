@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a full-stack e-commerce web application built with a modern tech stack. The application allows users to browse products, add them to a shopping cart, and place orders with cash-on-delivery payment. Products are sourced from Google Sheets, and orders are stored in a PostgreSQL database. The frontend is built with React and styled using Tailwind CSS with shadcn/ui components, while the backend uses Express.js with Drizzle ORM for database operations.
+This is a full-stack e-commerce web application built with a modern tech stack. The frontend is hosted on Replit and connects to a backend API hosted on Hostinger. The application allows users to browse products, add them to a shopping cart, and place orders with cash-on-delivery payment. Products and orders are stored in a MySQL database on Hostinger. The frontend is built with React and styled using Tailwind CSS with shadcn/ui components, while the backend uses Express.js with Drizzle ORM for database operations.
 
 ## User Preferences
 
@@ -25,10 +25,10 @@ Preferred communication style: Simple, everyday language.
 - **Storage Pattern**: In-memory caching with database persistence for orders
 
 ### Data Storage Solutions
-- **Primary Database**: PostgreSQL hosted on Neon for storing orders and potentially products
-- **External Data Source**: Google Sheets serves as the product catalog source of truth
-- **ORM**: Drizzle ORM provides type-safe database operations with PostgreSQL dialect
-- **Caching Strategy**: In-memory storage for products with refresh capability from Google Sheets
+- **Primary Database**: MySQL hosted on Hostinger for storing products and orders
+- **External Data Source**: Google Sheets integration available for product catalog management (optional)
+- **ORM**: Drizzle ORM provides type-safe database operations with MySQL dialect
+- **Architecture**: Frontend on Replit connects to backend API on Hostinger via CORS requests
 
 ### API Design
 - **Architecture**: RESTful API with clear endpoint structure
@@ -49,8 +49,9 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Database Services
-- **Neon Database**: PostgreSQL hosting service configured via `DATABASE_URL` environment variable
-- **Drizzle ORM**: Type-safe database toolkit with PostgreSQL adapter
+- **Hostinger MySQL**: MySQL database hosting service
+- **Drizzle ORM**: Type-safe database toolkit with MySQL adapter
+- **Connection**: Direct MySQL connection configured for Hostinger credentials
 
 ### Google Services Integration
 - **Google Sheets API**: Product catalog management requiring:
