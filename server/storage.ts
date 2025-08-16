@@ -299,6 +299,7 @@ export class DatabaseStorage implements IStorage {
         price: '599.99',
         stock: 15,
         active: true,
+        images: '["https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400", "https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=400"]',
         image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
         category: 'Electrónicos'
       },
@@ -309,6 +310,7 @@ export class DatabaseStorage implements IStorage {
         price: '1299.99',
         stock: 8,
         active: true,
+        images: '["https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=400", "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400"]',
         image: 'https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=400',
         category: 'Computadoras'
       },
@@ -319,6 +321,7 @@ export class DatabaseStorage implements IStorage {
         price: '199.99',
         stock: 25,
         active: true,
+        images: '["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400", "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400"]',
         image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
         category: 'Audio'
       },
@@ -329,6 +332,7 @@ export class DatabaseStorage implements IStorage {
         price: '299.99',
         stock: 12,
         active: true,
+        images: '["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400", "https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400"]',
         image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
         category: 'Wearables'
       },
@@ -339,6 +343,7 @@ export class DatabaseStorage implements IStorage {
         price: '899.99',
         stock: 6,
         active: true,
+        images: '["https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=400", "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400"]',
         image: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=400',
         category: 'Fotografía'
       }

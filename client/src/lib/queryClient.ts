@@ -3,6 +3,9 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 // Backend URL para Hostinger
 const BACKEND_URL = "https://nataperalta.com.ar";
 
+// Google Sheets ID para desarrollo directo
+const GOOGLE_SHEETS_ID = "1zRzVHt8hZClYOCWp_iWyYMb1fzEZf6jKeac57cGCaWM";
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;

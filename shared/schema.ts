@@ -10,7 +10,8 @@ export const products = mysqlTable("products", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   stock: int("stock").notNull().default(0),
   active: boolean("active").notNull().default(true),
-  image: text("image"),
+  images: text("images"), // JSON array de URLs de imágenes
+  image: text("image"), // Imagen principal (backward compatibility)
   category: text("category"),
 });
 
