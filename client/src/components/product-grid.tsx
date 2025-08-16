@@ -24,8 +24,10 @@ export function ProductGrid() {
     ? sheetsProducts.map(p => ({
         ...p,
         price: p.price.toString(),
-        image: p.images[0] || '', // Imagen principal
-        images: JSON.stringify(p.images), // Para compatibilidad
+        image: (p.images && p.images.length > 0) ? p.images[0] : '', // Imagen principal
+        images: p.images ? JSON.stringify(p.images) : JSON.stringify([]), // Para compatibilidad
+        description: p.description || '', // Asegurar que description no sea undefined
+        category: p.category || '', // Asegurar que category no sea undefined
       }))
     : apiProducts;
   
@@ -115,11 +117,23 @@ export function ProductGrid() {
             >
               {/* Carrusel de imágenes */}
               {(() => {
-                const images = product.images 
-                  ? JSON.parse(product.images) 
-                  : (product.image ? [product.image] : []);
+                let images = [];
+                try {
+                  images = product.images 
+                    ? JSON.parse(product.images) 
+                    : (product.image ? [product.image] : []);
+                } catch (e) {
+                  // Si hay error parseando, usar imagen simple
+                  images = product.image ? [product.image] : [];
+                }
                 
-                if (images.length === 0) return null;
+                if (images.length === 0) {
+                  return (
+                    <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-500">Sin imagen</span>
+                    </div>
+                  );
+                }
                 
                 const currentIndex = currentImageIndex[product.id] || 0;
                 const currentImage = images[currentIndex];

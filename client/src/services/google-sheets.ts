@@ -2,12 +2,12 @@
 export interface SheetsProduct {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   stock: number;
   active: boolean;
-  images: string[];
-  category: string;
+  images?: string[];
+  category?: string;
 }
 
 export class PublicGoogleSheetsService {
@@ -53,35 +53,44 @@ export class PublicGoogleSheetsService {
       
       const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
       
-      if (columns.length < 4) continue; // Mínimo ID, nombre, precio, stock
+      if (columns.length < 2) continue; // Mínimo ID y nombre requeridos
       
       const id = columns[idIndex] || `product-${i}`;
       const name = columns[nameIndex] || '';
-      const description = columns[descIndex] || '';
-      const price = parseFloat(columns[priceIndex]) || 0;
-      const stock = parseInt(columns[stockIndex]) || 0;
-      const active = columns[activeIndex]?.toLowerCase() === 'true' || columns[activeIndex] === '1' || true;
-      const imageUrls = columns[imageIndex] || '';
-      const category = columns[categoryIndex] || '';
+      const description = descIndex >= 0 && columns[descIndex] ? columns[descIndex].trim() : undefined;
+      const price = priceIndex >= 0 ? parseFloat(columns[priceIndex]) || 0 : 0;
+      const stock = stockIndex >= 0 ? parseInt(columns[stockIndex]) || 0 : 0;
+      const active = activeIndex >= 0 ? (columns[activeIndex]?.toLowerCase() === 'true' || columns[activeIndex] === '1') : true;
+      const imageUrls = imageIndex >= 0 && columns[imageIndex] ? columns[imageIndex].trim() : '';
+      const category = categoryIndex >= 0 && columns[categoryIndex] ? columns[categoryIndex].trim() : undefined;
       
       if (!name) continue;
       
-      // Procesar múltiples imágenes separadas por |
+      // Procesar múltiples imágenes separadas por | (solo si hay imágenes)
       const images = imageUrls
-        .split('|')
-        .map(url => url.trim())
-        .filter(url => url.length > 0);
+        ? imageUrls
+            .split('|')
+            .map(url => url.trim())
+            .filter(url => url.length > 0)
+        : [];
       
-      products.push({
+      // Solo incluir el array de imágenes si hay al menos una imagen
+      const finalImages = images.length > 0 ? images : undefined;
+      
+      const product: SheetsProduct = {
         id,
         name,
-        description,
         price,
         stock,
         active,
-        images,
-        category,
-      });
+      };
+      
+      // Solo agregar campos opcionales si tienen valor
+      if (description) product.description = description;
+      if (finalImages) product.images = finalImages;
+      if (category) product.category = category;
+      
+      products.push(product);
     }
     
     return products.filter(p => p.active);

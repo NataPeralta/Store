@@ -8,16 +8,16 @@
 
 Tu Google Sheets debe tener estas columnas (nombres flexibles):
 
-| Columna | Ejemplos de nombres | Descripción |
-|---------|-------------------|-------------|
-| ID | `id`, `codigo` | Identificador único |
-| Nombre | `nombre`, `name`, `producto` | Nombre del producto |
-| Descripción | `descripcion`, `description` | Descripción del producto |
-| Precio | `precio`, `price` | Precio en números |
-| Stock | `stock`, `cantidad` | Cantidad disponible |
-| Activo | `activo`, `active` | `true`/`false` o `1`/`0` |
-| Imágenes | `imagen`, `images`, `fotos` | URLs separadas por `|` |
-| Categoría | `categoria`, `category` | Categoría del producto |
+| Columna | Ejemplos de nombres | Descripción | Obligatorio |
+|---------|-------------------|-------------|-------------|
+| ID | `id`, `codigo` | Identificador único | ✅ Sí |
+| Nombre | `nombre`, `name`, `producto` | Nombre del producto | ✅ Sí |
+| Descripción | `descripcion`, `description` | Descripción del producto | ❌ Opcional |
+| Precio | `precio`, `price` | Precio en números | ✅ Sí |
+| Stock | `stock`, `cantidad` | Cantidad disponible | ✅ Sí |
+| Activo | `activo`, `active` | `true`/`false` o `1`/`0` | ❌ Opcional (por defecto: true) |
+| Imágenes | `imagen`, `images`, `fotos` | URLs separadas por `|` | ❌ Opcional |
+| Categoría | `categoria`, `category` | Categoría del producto | ❌ Opcional |
 
 ## 🖼️ Múltiples imágenes por producto
 
@@ -26,10 +26,19 @@ Tu Google Sheets debe tener estas columnas (nombres flexibles):
 https://ejemplo.com/imagen1.jpg|https://ejemplo.com/imagen2.jpg|https://ejemplo.com/imagen3.jpg
 ```
 
-### Ejemplo de fila:
+### Ejemplo de fila completa:
 ```
 p1|Smartphone Premium|Teléfono de última generación|599.99|15|true|https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400|https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=400|Electrónicos
 ```
+
+### Ejemplo con campos opcionales vacíos:
+```
+p2|Tablet Básica||299.99|10||https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400|
+p3|Auriculares|Sonido de calidad premium|89.99|25|false||
+p4|Laptop Gamer||1200.00|5||
+```
+
+ℹ️ **Nota**: Los campos opcionales pueden quedarse vacíos o no incluirse en la hoja. El sistema los manejará automáticamente.
 
 ## 📷 Opciones para manejar imágenes
 
@@ -76,7 +85,15 @@ p1|Smartphone Premium|Teléfono de última generación|599.99|15|true|https://im
 ```csv
 id,nombre,descripcion,precio,stock,activo,imagen,categoria
 p1,Smartphone Premium,Teléfono de última generación,599.99,15,true,https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400|https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=400,Electrónicos
-p2,Laptop Gaming,Laptop para juegos Intel i7,1299.99,8,true,https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=400,Computadoras
+p2,Laptop Gaming,,1299.99,8,,https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=400,Computadoras
+p3,Tablet Básica,,399.99,20,true,,
+p4,Mouse Inalámbrico,Precisión y comodidad,45.99,50,false,,Accesorios
 ```
+
+📝 **Ejemplos explicados**:
+- **p1**: Producto completo con todos los campos
+- **p2**: Sin descripción ni estado activo (usará true por defecto)
+- **p3**: Solo campos básicos, sin imagen ni categoría
+- **p4**: Con descripción y categoría, pero sin imagen y inactivo
 
 ¡Tu tienda ya está lista para leer de Google Sheets! 🎉
