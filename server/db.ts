@@ -1,15 +1,14 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { drizzle } from 'drizzle-orm/mysql2';
+import mysql from 'mysql2/promise';
 import * as schema from "@shared/schema";
 
-neonConfig.webSocketConstructor = ws;
+// MySQL connection configuration for Hostinger
+const connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'u691951636_storeuser',
+  password: 'I3&B0/gr[',
+  database: 'u691951636_storedb',
+  port: 3306,
+});
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle(connection, { schema });

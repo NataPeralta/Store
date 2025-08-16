@@ -1,21 +1,21 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, boolean, timestamp } from "drizzle-orm/pg-core";
+import { mysqlTable, text, varchar, int, decimal, boolean, timestamp } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const products = pgTable("products", {
-  id: varchar("id").primaryKey(),
+export const products = mysqlTable("products", {
+  id: varchar("id", { length: 255 }).primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  stock: integer("stock").notNull().default(0),
+  stock: int("stock").notNull().default(0),
   active: boolean("active").notNull().default(true),
   image: text("image"),
   category: text("category"),
 });
 
-export const orders = pgTable("orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const orders = mysqlTable("orders", {
+  id: varchar("id", { length: 255 }).primaryKey(),
   customerName: text("customer_name").notNull(),
   customerEmail: text("customer_email").notNull(),
   customerPhone: text("customer_phone"),
