@@ -144,19 +144,35 @@ export function ProductGrid() {
 
   return (
     <div>
-      {/* Debug Panel - MUY VISIBLE */}
-      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <Button 
-          onClick={() => setShowDebug(!showDebug)}
-          variant="outline"
-          size="sm"
-          className="mb-3 bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
-        >
-          {showDebug ? '🔒 Ocultar' : '🔍 Ver'} Debug Info (¡PRESIONA AQUÍ!)
-        </Button>
+
+      {/* Filters and Refresh */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="text-2xl font-bold text-gray-900">Nuestros Productos</h3>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setShowDebug(!showDebug)}
+              variant="outline"
+              size="sm"
+              className="bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
+            >
+              {showDebug ? '🔒' : '🔍'} Debug
+            </Button>
+            <Button 
+              onClick={handleRefresh}
+              disabled={refreshMutation.isPending}
+              variant="outline"
+              size="sm"
+              data-testid="button-refresh-products"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
         
+        {/* Debug Panel */}
         {showDebug && (
-          <div className="bg-gray-100 p-3 rounded text-xs space-y-1 font-mono">
+          <div className="mt-4 bg-gray-100 p-3 rounded text-xs space-y-1 font-mono">
             <div><strong>📊 Estado:</strong></div>
             <div>• Productos Google Sheets: {debugInfo.sheetsProducts}</div>
             <div>• Productos API: {debugInfo.apiProducts}</div>
@@ -171,22 +187,6 @@ export function ProductGrid() {
             <div>• products: {JSON.stringify(products?.slice(0, 1) || null).substring(0, 200)}...</div>
           </div>
         )}
-      </div>
-
-      {/* Filters and Refresh */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h3 className="text-2xl font-bold text-gray-900">Nuestros Productos</h3>
-          <Button 
-            onClick={handleRefresh}
-            disabled={refreshMutation.isPending}
-            variant="outline"
-            size="sm"
-            data-testid="button-refresh-products"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
       </div>
 
       {/* Loading State */}
