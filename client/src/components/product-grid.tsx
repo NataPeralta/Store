@@ -116,36 +116,11 @@ export function ProductGrid() {
     refreshMutation.mutate();
   };
 
-  if (error) {
-    return (
-      <div className="text-center py-12 max-w-md mx-auto">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-          <h3 className="text-amber-800 font-semibold mb-2">⚠️ Modo sin conexión</h3>
-          <p className="text-amber-700 text-sm mb-3">
-            Mostrando productos de muestra. Tu Google Sheets está configurado pero hay un problema de red móvil.
-          </p>
-          <div className="text-xs text-amber-600 space-y-1">
-            <p>✓ Mostrando 3 productos de ejemplo</p>
-            <p>✓ Carrusel de imágenes funcional</p>
-            <p>✓ Carrito de compras listo</p>
-          </div>
-        </div>
-        <Button onClick={handleRefresh} variant="outline" className="mb-4">
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-          {refreshMutation.isPending ? 'Conectando...' : 'Conectar a Google Sheets'}
-        </Button>
-        <div className="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
-          <strong>Productos de muestra basados en tu inventario:</strong><br/>
-          Los productos reales se cargarán cuando se resuelva la conexión.
-        </div>
-      </div>
-    );
-  }
+  // Renderizar siempre el debug info + el contenido
 
   return (
     <div>
-
-      {/* Debug Panel - SIEMPRE VISIBLE */}
+      {/* Debug Panel - SIEMPRE VISIBLE - SIN IMPORTAR ERRORES */}
       <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="text-xs space-y-1 font-mono">
           <div><strong>📊 Estado:</strong></div>
@@ -162,6 +137,31 @@ export function ProductGrid() {
           <div>• products: {JSON.stringify(products?.slice(0, 1) || null).substring(0, 200)}...</div>
         </div>
       </div>
+
+      {/* Si hay error, mostrar mensaje pero NO salir */}
+      {error && (
+        <div className="text-center py-12 max-w-md mx-auto">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+            <h3 className="text-amber-800 font-semibold mb-2">⚠️ Modo sin conexión</h3>
+            <p className="text-amber-700 text-sm mb-3">
+              Mostrando productos de muestra. Tu Google Sheets está configurado pero hay un problema de red móvil.
+            </p>
+            <div className="text-xs text-amber-600 space-y-1">
+              <p>✓ Mostrando 3 productos de ejemplo</p>
+              <p>✓ Carrusel de imágenes funcional</p>
+              <p>✓ Carrito de compras listo</p>
+            </div>
+          </div>
+          <Button onClick={handleRefresh} variant="outline" className="mb-4">
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+            {refreshMutation.isPending ? 'Conectando...' : 'Conectar a Google Sheets'}
+          </Button>
+          <div className="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
+            <strong>Productos de muestra basados en tu inventario:</strong><br/>
+            Los productos reales se cargarán cuando se resuelva la conexión.
+          </div>
+        </div>
+      )}
 
       {/* Filters and Refresh */}
       <div className="mb-8">
