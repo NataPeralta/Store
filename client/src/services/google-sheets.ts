@@ -60,7 +60,7 @@ export class PublicGoogleSheetsService {
       const description = descIndex >= 0 && columns[descIndex] ? columns[descIndex].trim() : undefined;
       const price = priceIndex >= 0 ? parseFloat(columns[priceIndex]) || 0 : 0;
       const stock = stockIndex >= 0 ? parseInt(columns[stockIndex]) || 0 : 0;
-      const active = activeIndex >= 0 ? (columns[activeIndex]?.toLowerCase() === 'true' || columns[activeIndex] === '1') : true;
+      const active = activeIndex >= 0 ? (columns[activeIndex] === '1' || columns[activeIndex]?.toLowerCase() === 'true') : true;
       const imageUrls = imageIndex >= 0 && columns[imageIndex] ? columns[imageIndex].trim() : '';
       const category = categoryIndex >= 0 && columns[categoryIndex] ? columns[categoryIndex].trim() : undefined;
       
