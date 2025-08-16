@@ -18,22 +18,49 @@ export class PublicGoogleSheetsService {
       // URL para acceder a Google Sheets como CSV público
       const csvUrl = `https://docs.google.com/spreadsheets/d/${this.sheetsId}/export?format=csv&gid=0`;
       
-      const response = await fetch(csvUrl);
+      console.log('📄 Intentando leer Google Sheets:', csvUrl);
+      
+      const response = await fetch(csvUrl, {
+        mode: 'cors',
+        headers: {
+          'Accept': 'text/csv,text/plain,*/*'
+        }
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch Google Sheets data');
+        console.error('❌ Error HTTP:', response.status, response.statusText);
+        throw new Error(`Error ${response.status}: ${response.statusText}. Verifica que tu Google Sheets esté público`);
       }
       
       const csvData = await response.text();
-      return this.parseCSVToProducts(csvData);
+      console.log('✅ CSV obtenido, longitud:', csvData.length);
+      console.log('📋 Primeras 200 caracteres:', csvData.substring(0, 200));
+      
+      const products = this.parseCSVToProducts(csvData);
+      console.log('🛍️ Productos parseados:', products.length);
+      
+      return products;
     } catch (error) {
-      console.error('Error fetching from Google Sheets:', error);
+      console.error('❌ Error completo:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('No se puede conectar a Google Sheets. Verifica tu conexión a internet o que la hoja esté pública.');
+      }
       throw error;
     }
   }
   
   private parseCSVToProducts(csv: string): SheetsProduct[] {
-    const lines = csv.split('\n');
+    if (!csv || csv.trim().length === 0) {
+      throw new Error('El archivo CSV está vacío o no se pudo leer');
+    }
+    
+    const lines = csv.split('\n').filter(line => line.trim().length > 0);
+    if (lines.length === 0) {
+      throw new Error('No hay datos en el Google Sheets');
+    }
+    
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    console.log('📊 Headers encontrados:', headers);
     
     // Mapear headers a índices
     const idIndex = headers.findIndex(h => h.toLowerCase().includes('id'));
@@ -51,7 +78,9 @@ export class PublicGoogleSheetsService {
       const line = lines[i].trim();
       if (!line) continue;
       
-      const columns = line.split(',').map(col => col.trim().replace(/"/g, ''));
+      // Parsing más robusto para manejar comas dentro de comillas
+      const columns = this.parseCSVLine(line);
+      console.log(`🔍 Fila ${i}:`, columns);
       
       if (columns.length < 2) continue; // Mínimo ID y nombre requeridos
       
@@ -93,7 +122,31 @@ export class PublicGoogleSheetsService {
       products.push(product);
     }
     
-    return products.filter(p => p.active);
+    const activeProducts = products.filter(p => p.active);
+    console.log(`✅ Productos activos: ${activeProducts.length} de ${products.length}`);
+    return activeProducts;
+  }
+  
+  private parseCSVLine(line: string): string[] {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    result.push(current.trim());
+    return result.map(col => col.replace(/^"(.*)"$/, '$1')); // Remove surrounding quotes
   }
   
   async saveOrder(order: {
