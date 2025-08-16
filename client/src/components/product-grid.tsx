@@ -144,15 +144,15 @@ export function ProductGrid() {
 
   return (
     <div>
-      {/* Debug Panel */}
-      <div className="mb-4">
+      {/* Debug Panel - MUY VISIBLE */}
+      <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <Button 
           onClick={() => setShowDebug(!showDebug)}
           variant="outline"
           size="sm"
-          className="mb-2"
+          className="mb-3 bg-yellow-100 border-yellow-300 text-yellow-800 hover:bg-yellow-200"
         >
-          {showDebug ? 'Ocultar' : 'Ver'} Debug Info
+          {showDebug ? '🔒 Ocultar' : '🔍 Ver'} Debug Info (¡PRESIONA AQUÍ!)
         </Button>
         
         {showDebug && (
