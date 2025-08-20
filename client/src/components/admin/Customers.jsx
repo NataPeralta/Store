@@ -1,0 +1,63 @@
+import { useEffect, useState } from 'react'
+import axios from 'axios'
+
+const Customers = () => {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [customers, setCustomers] = useState([])
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const { data } = await axios.get('/api/admin/customers')
+        setCustomers(data)
+      } catch (e) {
+        setError('No se pudieron cargar los clientes')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCustomers()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">{error}</div>
+  }
+
+  if (customers.length === 0) {
+    return <p className="text-gray-500">Aún no hay clientes.</p>
+  }
+
+  return (
+    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      <ul className="divide-y divide-gray-200">
+        {customers.map((c) => (
+          <li key={c.email} className="px-4 py-4 sm:px-6">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-900 truncate">{c.customer_name} {c.customer_lastname}</p>
+                <p className="text-sm text-gray-500">{c.email}</p>
+              </div>
+              <div className="ml-4 text-right text-sm text-gray-600">
+                <p>Órdenes: <span className="font-semibold">{c.orders}</span></p>
+                <p>Total gastado: <span className="font-semibold">${(c.total_spent || 0).toLocaleString()}</span></p>
+                <p className="text-xs text-gray-400">Primera: {new Date(c.first_order).toLocaleDateString('es-ES')}</p>
+                <p className="text-xs text-gray-400">Última: {new Date(c.last_order).toLocaleDateString('es-ES')}</p>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export default Customers
