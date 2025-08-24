@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import axios from 'axios'
 import Cart from '../components/Cart'
@@ -15,6 +16,7 @@ const Store = () => {
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const [showEmailModal, setShowEmailModal] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { getItemCount } = useCart()
 
   useEffect(() => {
@@ -24,6 +26,9 @@ const Store = () => {
     if (!storedEmail) {
       setShowEmailModal(true)
     }
+    const token = localStorage.getItem('adminToken')
+    const user = localStorage.getItem('adminUser')
+    setIsAdmin(!!(token && user))
   }, [])
 
   const fetchProducts = async () => {
@@ -68,17 +73,27 @@ const Store = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">SheetCart</h1>
-            <button
-              onClick={() => setShowCart(true)}
-              className="relative bg-[var(--primary)] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors"
-            >
-              🛒 Carrito
-              {getItemCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
-                  {getItemCount()}
-                </span>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Link
+                  to="/admin/dashboard"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-[var(--primary)] hover:bg-gray-50"
+                >
+                  Backoffice
+                </Link>
               )}
-            </button>
+              <button
+                onClick={() => setShowCart(true)}
+                className="relative bg-[var(--primary)] text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors"
+              >
+                🛒 Carrito
+                {getItemCount() > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
+                    {getItemCount()}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -111,6 +111,11 @@ const ProductManagement = () => {
     }
   }
 
+  const getThumbUrl = (imagePath) => {
+    if (!imagePath) return ''
+    return imagePath.replace('/uploads/', '/uploads/thumbs/')
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -167,6 +172,20 @@ const ProductManagement = () => {
               <li key={product.id}>
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    {/* Preview 256x256 */}
+                    <div className="flex-shrink-0 sm:mr-4">
+                      {Array.isArray(product.images) && product.images.length > 0 ? (
+                        <img
+                          src={getThumbUrl(product.images[0])}
+                          alt={product.name}
+                          className="w-28 h-28 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="w-28 h-28 bg-gray-200 rounded border flex items-center justify-center">
+                          <span className="text-gray-400">Sin imagen</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--primary)' }}>

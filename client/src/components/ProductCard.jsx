@@ -3,8 +3,6 @@ import { useCart } from '../context/CartContext'
 import ImageGallery from './ImageGallery'
 
 const ProductCard = ({ product }) => {
-  console.log('ProductCard rendered for product:', product.name)
-  console.log('Product images:', product.images)
   
   const { addItem, items } = useCart()
   const [showGallery, setShowGallery] = useState(false)
@@ -18,12 +16,8 @@ const ProductCard = ({ product }) => {
   }
 
   const openImageGallery = () => {
-    console.log('openImageGallery called')
-    console.log('product.images:', product.images)
-    console.log('product.images.length:', product.images?.length)
     
-    if (product.images && product.images.length > 0) {
-      console.log('Setting gallery to true')
+    if (product.images && product.images.length > 0) {  
       setGalleryInitialIndex(0)
       setShowGallery(true)
     }
@@ -42,7 +36,6 @@ const ProductCard = ({ product }) => {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                console.log('CLICK EN IMAGEN DETECTADO!')
                 openImageGallery()
               }}
             />
@@ -57,7 +50,6 @@ const ProductCard = ({ product }) => {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                console.log('BOTÓN GALERÍA CLICKEADO!')
                 openImageGallery()
               }}
               className="absolute top-2 left-2 bg-[var(--primary)] text-white px-3 py-1 rounded text-sm font-medium hover:opacity-90 z-10"
@@ -145,7 +137,6 @@ const ProductCard = ({ product }) => {
       {/* Galería de imágenes */}
       {showGallery && product.images && product.images.length > 0 && (
         <>
-          {console.log('Rendering ImageGallery, showGallery:', showGallery)}
           <ImageGallery
             images={product.images}
             initialIndex={galleryInitialIndex}

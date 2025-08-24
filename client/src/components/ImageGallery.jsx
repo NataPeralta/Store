@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 
 const ImageGallery = ({ images, initialIndex = 0, onClose }) => {
-  console.log('ImageGallery component rendered')
-  console.log('images:', images)
-  console.log('initialIndex:', initialIndex)
-  
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
 
   const goToPrevious = () => {
