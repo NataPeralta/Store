@@ -5,6 +5,7 @@ const Customers = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [customers, setCustomers] = useState([])
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -19,6 +20,19 @@ const Customers = () => {
     }
     fetchCustomers()
   }, [])
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+    try {
+      setDeletingId(id)
+      await axios.delete(`/api/admin/customers/${id}`)
+      setCustomers(prev => prev.filter(c => c.id !== id))
+    } catch (e) {
+      alert(e.response?.data?.error || 'No se pudo eliminar el cliente')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -46,11 +60,20 @@ const Customers = () => {
                 <p className="text-sm font-medium text-gray-900 truncate">{c.customer_name} {c.customer_lastname}</p>
                 <p className="text-sm text-gray-500 break-all">{c.email}</p>
               </div>
-              <div className="sm:ml-4 text-left sm:text-right text-sm text-gray-600">
+              <div className="sm:ml-4 text-left sm:text-right text-sm text-gray-600 flex items-center gap-4">
                 <p>Órdenes: <span className="font-semibold">{c.orders}</span></p>
                 <p>Total gastado: <span className="font-semibold">${(c.total_spent || 0).toLocaleString()}</span></p>
                 <p className="text-xs text-gray-400">Primera: {new Date(c.first_order).toLocaleDateString('es-ES')}</p>
                 <p className="text-xs text-gray-400">Última: {new Date(c.last_order).toLocaleDateString('es-ES')}</p>
+                {c.orders === 0 && (
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    disabled={deletingId === c.id}
+                    className={`px-3 py-1 rounded-md border text-sm ${deletingId === c.id ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+                  >
+                    {deletingId === c.id ? 'Eliminando...' : 'Eliminar'}
+                  </button>
+                )}
               </div>
             </div>
           </li>

@@ -615,6 +615,42 @@ app.get('/api/admin/customers', authenticateToken, (req, res) => {
   });
 });
 
+// Eliminar cliente (solo si no tiene órdenes)
+app.delete('/api/admin/customers/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  db.get('SELECT email FROM customers WHERE id = ?', [id], (err, customer) => {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    if (!customer) {
+      db.close();
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+    const emailKey = String(customer.email || '').toLowerCase();
+    db.get(
+      'SELECT COUNT(*) AS cnt FROM orders WHERE LOWER(customer_email) = ?',
+      [emailKey],
+      (e2, row) => {
+        if (e2) {
+          db.close();
+          return res.status(500).json({ error: e2.message });
+        }
+        if ((row?.cnt || 0) > 0) {
+          db.close();
+          return res.status(400).json({ error: 'No se puede eliminar: el cliente tiene compras' });
+        }
+        db.run('DELETE FROM customers WHERE id = ?', [id], function(e3) {
+          db.close();
+          if (e3) return res.status(500).json({ error: e3.message });
+          return res.json({ success: true });
+        });
+      }
+    );
+  });
+});
+
 // Actualizar estado de orden
 app.put('/api/admin/orders/:id/status', authenticateToken, (req, res) => {
   const { id } = req.params;
