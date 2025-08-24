@@ -15,11 +15,17 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
     active: true
   })
   const [images, setImages] = useState([])
-  const [availableImages, setAvailableImages] = useState([])
+  const [availableImages, setAvailableImages] = useState([]) // [{ original, thumb, filename }]
   const [selectedExistingImages, setSelectedExistingImages] = useState([])
   const [primaryImage, setPrimaryImage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([])
+  const [uploadsPage, setUploadsPage] = useState(1)
+  const [uploadsTotal, setUploadsTotal] = useState(0)
+  const [uploadsLimit] = useState(40)
+  const [loadingUploads, setLoadingUploads] = useState(false)
+  const [exchangeRate, setExchangeRate] = useState(1)
 
   useEffect(() => {
     if (product) {
@@ -35,6 +41,9 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
         stock: product.stock || '',
         active: product.active
       })
+      if (Array.isArray(product.category_ids)) {
+        setSelectedCategoryIds(product.category_ids)
+      }
       // Cargar imágenes existentes del producto para edición
       const currentImages = Array.isArray(product.images) ? product.images : []
       setSelectedExistingImages(currentImages)
@@ -42,15 +51,27 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
     }
   }, [product])
 
-  // Cargar imágenes disponibles del directorio uploads para selección
+  // Cargar imágenes disponibles del directorio uploads para selección y tipo de cambio
   useEffect(() => {
+    const loadRate = async () => {
+      try {
+        const token = localStorage.getItem('adminToken')
+        const resp = await axios.get('/api/admin/settings/exchange-rate', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        setExchangeRate(resp.data?.exchange_rate || 1)
+      } catch {}
+    }
+    loadRate()
     const loadUploads = async () => {
       try {
         const token = localStorage.getItem('adminToken')
-        const resp = await axios.get('/api/admin/uploads', {
+        const resp = await axios.get('/api/admin/uploads/list', {
+          params: { page: 1, limit: uploadsLimit },
           headers: { Authorization: `Bearer ${token}` },
         })
-        setAvailableImages(resp.data || [])
+        const { items, total } = resp.data || { items: [], total: 0 }
+        setAvailableImages(items)
+        setUploadsTotal(total)
+        setUploadsPage(1)
       } catch (e) {
         // Silencioso: si no hay imágenes disponibles
       }
@@ -60,6 +81,37 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
+    if (name === 'original_price' || name === 'margin' || name === 'price') {
+      const toNumber = (v) => {
+        if (v === '' || v === null || typeof v === 'undefined') return NaN
+        const n = parseFloat(String(v).replace(',', '.'))
+        return Number.isNaN(n) ? NaN : n
+      }
+      const round2 = (n) => Math.round(n * 100) / 100
+
+      const next = { ...formData, [name]: value }
+      const original = name === 'original_price' ? toNumber(value) : toNumber(next.original_price)
+      const margin = name === 'margin' ? toNumber(value) : toNumber(next.margin)
+      const price = name === 'price' ? toNumber(value) : toNumber(next.price)
+
+      if (name === 'original_price' || name === 'margin') {
+        if (!Number.isNaN(original) && original > 0 && !Number.isNaN(margin)) {
+          const computedPrice = round2(original * (1 + margin / 100))
+          next.price = String(computedPrice)
+        }
+      }
+
+      if (name === 'price') {
+        if (!Number.isNaN(original) && original > 0 && !Number.isNaN(price)) {
+          const computedMargin = round2(((price / original) - 1) * 100)
+          next.margin = String(computedMargin)
+        }
+      }
+
+      setFormData(next)
+      return
+    }
+
     setFormData({
       ...formData,
       [name]: type === 'checkbox' ? checked : value
@@ -108,6 +160,17 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
       if (product) {
         // Actualizar datos del producto
         await axios.put(`/api/admin/products/${product.id}`, formData)
+        // Actualizar categorías múltiples
+        try {
+          const token = localStorage.getItem('adminToken')
+          await axios.put(
+            `/api/admin/products/${product.id}/categories`,
+            { category_ids: selectedCategoryIds },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        } catch (e) {
+          console.error('Error updating product categories:', e)
+        }
         // Si se eligieron imágenes existentes o principal, actualizar asociaciones
         if (selectedExistingImages.length > 0) {
           const token = localStorage.getItem('adminToken')
@@ -128,7 +191,20 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
         }
       } else {
         // Crear nuevo producto
-        await axios.post('/api/admin/products', formDataToSend)
+        const createResp = await axios.post('/api/admin/products', formDataToSend)
+        const newId = createResp.data?.productId
+        if (newId && selectedCategoryIds.length > 0) {
+          try {
+            const token = localStorage.getItem('adminToken')
+            await axios.put(
+              `/api/admin/products/${newId}/categories`,
+              { category_ids: selectedCategoryIds },
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+          } catch (e) {
+            console.error('Error setting categories for new product:', e)
+          }
+        }
       }
 
       onSuccess()
@@ -141,8 +217,8 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-lg shadow-xl w-full mx-4 max-h-[90vh] flex flex-col sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-xl font-semibold">
@@ -156,8 +232,8 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
           </button>
         </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        {/* Formulario (contenido scrollable) */}
+        <form id="productForm" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -175,21 +251,31 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Categoría
+                Categorías
               </label>
-              <select
-                name="category_id"
-                value={formData.category_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
-              >
-                <option value="">Seleccionar categoría</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 border border-gray-200 rounded">
+                {categories.map(category => {
+                  const checked = selectedCategoryIds.includes(category.id)
+                  return (
+                    <label key={category.id} className="text-sm flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          setSelectedCategoryIds(prev => {
+                            if (e.target.checked) {
+                              return [...new Set([...prev, category.id])]
+                            }
+                            return prev.filter(id => id !== category.id)
+                          })
+                        }}
+                      />
+                      <span>{category.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Puedes seleccionar múltiples categorías.</p>
             </div>
 
             <div>
@@ -259,6 +345,34 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                ≈ {(Number(formData.price || 0) * Number(exchangeRate || 1)).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio (ARS)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={(() => {
+                  const usd = parseFloat(String(formData.price || '').replace(',', '.'))
+                  const rate = Number(exchangeRate || 1)
+                  if (!Number.isFinite(usd) || !Number.isFinite(rate)) return ''
+                  return Math.round(usd * rate * 100) / 100
+                })()}
+                onChange={(e) => {
+                  const ars = parseFloat(e.target.value)
+                  const rate = Number(exchangeRate || 1)
+                  if (Number.isFinite(ars) && rate > 0) {
+                    const usd = Math.round((ars / rate) * 100) / 100
+                    handleInputChange({ target: { name: 'price', value: String(usd) } })
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+              />
+              <p className="text-xs text-gray-500 mt-1">Modificar ARS recalcula USD y margen.</p>
             </div>
 
             <div>
@@ -297,18 +411,18 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
               <p className="text-sm text-gray-500">No hay imágenes disponibles en <code className="px-1 bg-gray-100 rounded">/server/uploads</code>.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {availableImages.map((img) => {
-                  const selected = selectedExistingImages.includes(img)
-                  const isPrimary = primaryImage === img
+                {availableImages.map((item) => {
+                  const selected = selectedExistingImages.includes(item.original)
+                  const isPrimary = primaryImage === item.original
                   return (
-                    <div key={img} className={`relative border rounded p-2 ${selected ? 'border-[var(--primary)]' : 'border-gray-200'}`}>
-                      <img src={img} alt="img" className="w-full h-24 object-cover rounded" />
+                    <div key={item.original} className={`relative border rounded p-2 ${selected ? 'border-[var(--primary)]' : 'border-gray-200'}`}>
+                      <img src={item.thumb} alt="img" loading="lazy" className="w-full h-24 object-cover rounded" />
                       <div className="mt-2 flex items-center justify-between">
                         <label className="text-xs flex items-center space-x-1 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selected}
-                            onChange={() => toggleExistingImage(img)}
+                            onChange={() => toggleExistingImage(item.original)}
                           />
                           <span>Usar</span>
                         </label>
@@ -318,7 +432,7 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                             name="primaryImage"
                             disabled={!selected}
                             checked={isPrimary}
-                            onChange={() => setPrimaryImage(img)}
+                            onChange={() => setPrimaryImage(item.original)}
                           />
                           <span>Principal</span>
                         </label>
@@ -328,8 +442,32 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                 })}
               </div>
             )}
-            {selectedExistingImages.length > 0 && (
-              <p className="text-xs text-gray-500 mt-2">Seleccionadas: {selectedExistingImages.length}. Principal: {primaryImage || '—'}</p>
+            {availableImages.length < uploadsTotal && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setLoadingUploads(true)
+                      const token = localStorage.getItem('adminToken')
+                      const next = uploadsPage + 1
+                      const resp = await axios.get('/api/admin/uploads/list', {
+                        params: { page: next, limit: uploadsLimit },
+                        headers: { Authorization: `Bearer ${token}` },
+                      })
+                      const { items } = resp.data || { items: [] }
+                      setAvailableImages(prev => [...prev, ...items])
+                      setUploadsPage(next)
+                    } finally {
+                      setLoadingUploads(false)
+                    }
+                  }}
+                  disabled={loadingUploads}
+                  className={`w-full py-2 px-3 rounded border ${loadingUploads ? 'bg-gray-100 text-gray-400' : 'bg-white hover:bg-gray-50'}`}
+                >
+                  {loadingUploads ? 'Cargando…' : 'Cargar más'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -366,28 +504,29 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
               {error}
             </div>
           )}
-
-          <div className="flex space-x-2 pt-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`flex-1 py-2 px-4 rounded-md font-medium ${
-                loading
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-[var(--primary)] text-white hover:opacity-90'
-              }`}
-            >
-              {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
-            </button>
-          </div>
         </form>
+        {/* Footer fijo */}
+        <div className="border-t p-4 flex space-x-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="productForm"
+            disabled={loading}
+            className={`flex-1 py-2 px-4 rounded-md font-medium ${
+              loading
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-[var(--primary)] text-white hover:opacity-90'
+            }`}
+          >
+            {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -41,12 +41,12 @@ const Customers = () => {
       <ul className="divide-y divide-gray-200">
         {customers.map((c) => (
           <li key={c.email} className="px-4 py-4 sm:px-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-900 truncate">{c.customer_name} {c.customer_lastname}</p>
-                <p className="text-sm text-gray-500">{c.email}</p>
+                <p className="text-sm text-gray-500 break-all">{c.email}</p>
               </div>
-              <div className="ml-4 text-right text-sm text-gray-600">
+              <div className="sm:ml-4 text-left sm:text-right text-sm text-gray-600">
                 <p>Órdenes: <span className="font-semibold">{c.orders}</span></p>
                 <p>Total gastado: <span className="font-semibold">${(c.total_spent || 0).toLocaleString()}</span></p>
                 <p className="text-xs text-gray-400">Primera: {new Date(c.first_order).toLocaleDateString('es-ES')}</p>

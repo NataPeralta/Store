@@ -5,9 +5,9 @@ import axios from 'axios'
 const CheckoutModal = ({ onClose, onSuccess }) => {
   const { items, getTotal, clearCart } = useCart()
   const [formData, setFormData] = useState({
-    customer_name: '',
-    customer_lastname: '',
-    customer_email: ''
+    customer_name: localStorage.getItem('customerName') || '',
+    customer_lastname: localStorage.getItem('customerLastname') || '',
+    customer_email: localStorage.getItem('customerEmail') || ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -117,44 +117,45 @@ const CheckoutModal = ({ onClose, onSuccess }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre *
+                Nombre
               </label>
               <input
                 type="text"
                 name="customer_name"
                 value={formData.customer_name}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Apellido *
+                Apellido
               </label>
               <input
                 type="text"
                 name="customer_lastname"
                 value={formData.customer_lastname}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email *
+                Email (usado para tu pedido)
               </label>
               <input
                 type="email"
                 name="customer_email"
                 value={formData.customer_email}
-                onChange={handleInputChange}
+                readOnly
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
               />
+              {!formData.customer_email && (
+                <p className="text-sm text-red-600 mt-1">Falta tu email. Vuelve y complétalo.</p>
+              )}
             </div>
 
             {error && (

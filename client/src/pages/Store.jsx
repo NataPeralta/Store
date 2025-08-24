@@ -5,6 +5,7 @@ import Cart from '../components/Cart'
 import ProductCard from '../components/ProductCard'
 import CheckoutModal from '../components/CheckoutModal'
 import Banner from '../components/Banner'
+import EmailRegistrationModal from '../components/EmailRegistrationModal'
 
 const Store = () => {
   const [products, setProducts] = useState([])
@@ -13,11 +14,16 @@ const Store = () => {
   const [loading, setLoading] = useState(true)
   const [showCart, setShowCart] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
   const { getItemCount } = useCart()
 
   useEffect(() => {
     fetchProducts()
     fetchCategories()
+    const storedEmail = localStorage.getItem('customerEmail')
+    if (!storedEmail) {
+      setShowEmailModal(true)
+    }
   }, [])
 
   const fetchProducts = async () => {
@@ -40,9 +46,12 @@ const Store = () => {
     }
   }
 
-  const filteredProducts = selectedCategory === 'all' 
-    ? products 
-    : products.filter(product => product.category_id === parseInt(selectedCategory))
+  const filteredProducts = selectedCategory === 'all'
+    ? products
+    : products.filter(product => Array.isArray(product.category_ids)
+      ? product.category_ids.includes(parseInt(selectedCategory))
+      : product.category_id === parseInt(selectedCategory)
+    )
 
   if (loading) {
     return (
@@ -119,7 +128,12 @@ const Store = () => {
           onClose={() => setShowCart(false)}
           onCheckout={() => {
             setShowCart(false)
-            setShowCheckout(true)
+            const storedEmail = localStorage.getItem('customerEmail')
+            if (!storedEmail) {
+              setShowEmailModal(true)
+            } else {
+              setShowCheckout(true)
+            }
           }}
         />
       )}
@@ -131,6 +145,16 @@ const Store = () => {
           onSuccess={() => {
             setShowCheckout(false)
             setShowCart(false)
+          }}
+        />
+      )}
+
+      {/* Modal de registro de email */}
+      {showEmailModal && (
+        <EmailRegistrationModal
+          onClose={() => setShowEmailModal(false)}
+          onSaved={() => {
+            setShowEmailModal(false)
           }}
         />
       )}

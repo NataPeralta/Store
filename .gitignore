@@ -6,13 +6,6 @@ node_modules/
 client/dist/
 client/build/
 
-# Database
-server/database.sqlite
-server/database.sqlite-journal
-
-# Uploads
-server/uploads/
-
 # Environment variables
 .env
 .env.local

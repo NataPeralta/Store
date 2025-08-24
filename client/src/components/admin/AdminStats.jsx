@@ -4,7 +4,7 @@ import axios from 'axios'
 const formatCurrency = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'USD' })
 
 const StatCard = ({ label, value }) => (
-  <div className="bg-white rounded-lg shadow p-4">
+  <div className="bg-white rounded-lg shadow p-4 min-w-0">
     <p className="text-sm text-gray-500">{label}</p>
     <p className="text-2xl font-semibold text-gray-900">{value}</p>
   </div>

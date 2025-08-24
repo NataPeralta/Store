@@ -9,6 +9,8 @@ const ProductManagement = () => {
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
 
   useEffect(() => {
     fetchProducts()
@@ -26,6 +28,42 @@ const ProductManagement = () => {
       setLoading(false)
     }
   }
+
+  // Derivados de filtrado
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const nameFilteredProducts = normalizedSearch
+    ? products.filter((p) => {
+        const haystack = `${p.name || ''} ${p.brand || ''}`.toLowerCase()
+        return haystack.includes(normalizedSearch)
+      })
+    : products
+
+  // Categorías disponibles según búsqueda por nombre
+  const availableCategoryIds = new Set()
+  nameFilteredProducts.forEach((p) => {
+    if (Array.isArray(p.category_ids)) {
+      p.category_ids.forEach((id) => availableCategoryIds.add(id))
+    } else if (p.category_id) {
+      availableCategoryIds.add(p.category_id)
+    }
+  })
+  const filteredCategoryOptions = categories.filter((c) => availableCategoryIds.has(c.id))
+
+  // Asegurar que la categoría seleccionada siga siendo válida tras la búsqueda (sin setState en render)
+  useEffect(() => {
+    if (selectedCategory !== 'all' && !availableCategoryIds.has(parseInt(selectedCategory))) {
+      setSelectedCategory('all')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, products])
+
+  // Productos finales filtrados por nombre + categoría
+  const filteredProducts = nameFilteredProducts.filter((p) => {
+    if (selectedCategory === 'all') return true
+    const catId = parseInt(selectedCategory)
+    if (Array.isArray(p.category_ids)) return p.category_ids.includes(catId)
+    return p.category_id === catId
+  })
 
   const fetchCategories = async () => {
     try {
@@ -83,14 +121,33 @@ const ProductManagement = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900">Gestión de Productos</h2>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-        >
-          + Nuevo Producto
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:justify-end">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o marca..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 min-w-[200px] md:min-w-[260px] md:w-72 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+          />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full sm:w-48 md:w-56 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+          >
+            <option value="all">Todas</option>
+            {filteredCategoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+          >
+            + Nuevo Producto
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -99,17 +156,17 @@ const ProductManagement = () => {
         </div>
       )}
 
-      {products.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No hay productos disponibles.</p>
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <li key={product.id}>
                 <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--primary)' }}>
@@ -128,16 +185,21 @@ const ProductManagement = () => {
                       <div className="mt-2 sm:flex sm:justify-between">
                         <div className="sm:flex">
                           <p className="flex items-center text-sm text-gray-500">
-                            Categoría: {product.category_name || 'Sin categoría'}
+                            Categorías: {Array.isArray(product.category_names) && product.category_names.length > 0 ? product.category_names.join(', ') : (product.category_name || 'Sin categoría')}
                           </p>
                           <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
                             Marca: {product.brand || 'Sin marca'}
                           </p>
                         </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 space-x-4">
                           <p>
-                            Precio: <span className="font-semibold">${product.price?.toLocaleString()}</span>
+                            Precio USD: <span className="font-semibold">${product.price?.toLocaleString()}</span>
                           </p>
+                          {typeof product.price_ars !== 'undefined' && product.price_ars !== null && (
+                            <p>
+                              Precio ARS: <span className="font-semibold">{product.price_ars.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="mt-2">
@@ -153,7 +215,7 @@ const ProductManagement = () => {
                         </div>
                       )}
                     </div>
-                    <div className="ml-4 flex-shrink-0 flex space-x-2">
+                    <div className="sm:ml-4 flex-shrink-0 flex space-x-2 order-last sm:order-none">
                       <button
                         onClick={() => toggleProductStatus(product.id, product.active)}
                         className={`text-sm px-3 py-1 rounded ${

@@ -6,6 +6,11 @@ const Cart = ({ onClose, onCheckout }) => {
   const { items, removeItem, getTotal, clearCart } = useCart()
   const [stockValidation, setStockValidation] = useState([])
   const [validating, setValidating] = useState(true)
+  const [customer, setCustomer] = useState({
+    name: localStorage.getItem('customerName') || '',
+    lastname: localStorage.getItem('customerLastname') || '',
+    email: localStorage.getItem('customerEmail') || ''
+  })
 
   // Validar stock cuando se abre el carrito
   useEffect(() => {
@@ -63,6 +68,14 @@ const Cart = ({ onClose, onCheckout }) => {
 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto p-4">
+          {/* Datos del cliente */}
+          {(customer.name || customer.lastname || customer.email) && (
+            <div className="mb-4 p-3 border rounded-md bg-gray-50">
+              <p className="text-sm text-gray-700 font-medium">Tus datos</p>
+              <p className="text-sm text-gray-800">{customer.name} {customer.lastname}</p>
+              <p className="text-sm text-gray-600">{customer.email}</p>
+            </div>
+          )}
           {validating ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--primary)' }}></div>

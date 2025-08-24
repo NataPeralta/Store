@@ -6,16 +6,78 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { initDatabase, getDatabase } = require('./database');
 const fs = require('fs');
+const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro';
 
 // Middleware
+app.set('etag', 'strong');
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client/dist')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  etag: true,
+  lastModified: true,
+  cacheControl: true,
+  maxAge: '365d',
+  setHeaders: (res, filePath) => {
+    if (/\.(?:png|jpe?g|gif|webp|svg)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  }
+}));
+
+// Miniaturas (thumbnails) para imágenes de uploads
+const thumbsDir = path.join(__dirname, 'uploads', 'thumbs');
+if (!fs.existsSync(thumbsDir)) {
+  fs.mkdirSync(thumbsDir, { recursive: true });
+}
+
+// Genera y sirve miniatura 256x256 preservando formato cuando es posible
+app.get('/uploads/thumbs/:file', async (req, res) => {
+  try {
+    const { file } = req.params;
+    const sourcePath = path.join(__dirname, 'uploads', file);
+    const ext = path.extname(file).toLowerCase();
+    const base = path.basename(file, ext);
+    const thumbName = `${base}-256x256${ext || '.webp'}`;
+    const thumbPath = path.join(thumbsDir, thumbName);
+
+    // Validar que la fuente exista
+    if (!fs.existsSync(sourcePath)) {
+      return res.status(404).send('Imagen no encontrada');
+    }
+
+    // Si no existe la miniatura o la fuente es más nueva, regenerar
+    let shouldGenerate = true;
+    if (fs.existsSync(thumbPath)) {
+      const srcStat = fs.statSync(sourcePath);
+      const thStat = fs.statSync(thumbPath);
+      shouldGenerate = srcStat.mtimeMs > thStat.mtimeMs || thStat.size === 0;
+    }
+
+    if (shouldGenerate) {
+      const pipeline = sharp(sourcePath).resize(256, 256, { fit: 'cover' });
+      // Para formatos no soportados, convertir a webp
+      if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
+        await pipeline.toFile(thumbPath);
+      } else {
+        await pipeline.webp({ quality: 82 }).toFile(thumbPath);
+      }
+    }
+
+    // Enviar con cabeceras de caché fuertes
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.sendFile(thumbPath);
+  } catch (err) {
+    console.error('Error generando miniatura:', err);
+    res.status(500).send('Error generando miniatura');
+  }
+});
 
 // Configuración de multer para subida de archivos
 const storage = multer.diskStorage({
@@ -70,39 +132,51 @@ initDatabase().then(() => {
 // Obtener todos los productos activos
 app.get('/api/products', (req, res) => {
   const db = getDatabase();
-  const query = `
-    SELECT p.*, c.name as category_name, 
-           GROUP_CONCAT(pi.image_path) as images
-    FROM products p
-    LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN product_images pi ON p.id = pi.product_id
-    WHERE p.active = 1
-    GROUP BY p.id
-    ORDER BY p.created_at DESC
-  `;
-  
-  db.all(query, [], (err, rows) => {
-    if (err) {
+  db.get(`SELECT value FROM settings WHERE key = 'exchange_rate'`, [], (er, row) => {
+    if (er) {
       db.close();
-      res.status(500).json({ error: err.message });
-      return;
+      return res.status(500).json({ error: er.message });
     }
+    const exchangeRate = parseFloat(row?.value || '1') || 1;
+    const query = `
+      SELECT p.*, 
+             GROUP_CONCAT(DISTINCT pi.image_path) AS images,
+             GROUP_CONCAT(DISTINCT c.name) AS category_names,
+             GROUP_CONCAT(DISTINCT c.id) AS category_ids
+      FROM products p
+      LEFT JOIN product_images pi ON p.id = pi.product_id
+      LEFT JOIN product_categories pc ON pc.product_id = p.id
+      LEFT JOIN categories c ON c.id = pc.category_id AND c.active = 1
+      WHERE p.active = 1
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `;
     
-    // Procesar imágenes
-    const products = rows.map(product => ({
-      ...product,
-      images: product.images ? product.images.split(',') : []
-    }));
-    
-    db.close();
-    res.json(products);
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        db.close();
+        return res.status(500).json({ error: err.message });
+      }
+      
+      const products = rows.map(product => ({
+        ...product,
+        images: product.images ? product.images.split(',') : [],
+        category_names: product.category_names ? product.category_names.split(',') : [],
+        category_ids: product.category_ids ? product.category_ids.split(',').map(id => parseInt(id, 10)) : [],
+        price_ars: product.price ? Number(product.price) * exchangeRate : null,
+        original_price_ars: product.original_price ? Number(product.original_price) * exchangeRate : null
+      }));
+      
+      db.close();
+      res.json(products);
+    });
   });
 });
 
 // Obtener categorías
 app.get('/api/categories', (req, res) => {
   const db = getDatabase();
-  db.all('SELECT * FROM categories ORDER BY name', [], (err, rows) => {
+  db.all('SELECT * FROM categories WHERE active = 1 ORDER BY name', [], (err, rows) => {
     if (err) {
       db.close();
       res.status(500).json({ error: err.message });
@@ -110,6 +184,45 @@ app.get('/api/categories', (req, res) => {
     }
     db.close();
     res.json(rows);
+  });
+});
+
+// Registrar/obtener cliente por email
+app.post('/api/customers/register-or-get', (req, res) => {
+  const { email, customer_name, customer_lastname } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email requerido' });
+  }
+  const cleanEmail = String(email).trim().toLowerCase();
+  const name = (customer_name || '').trim();
+  const lastname = (customer_lastname || '').trim();
+
+  const db = getDatabase();
+  db.get('SELECT * FROM customers WHERE email = ?', [cleanEmail], (err, row) => {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    if (row) {
+      db.close();
+      return res.json(row);
+    }
+    db.run(
+      `INSERT INTO customers (email, customer_name, customer_lastname) VALUES (?, ?, ?)`,
+      [cleanEmail, name, lastname],
+      function(e2) {
+        if (e2) {
+          db.close();
+          return res.status(500).json({ error: e2.message });
+        }
+        const id = this.lastID;
+        db.get('SELECT * FROM customers WHERE id = ?', [id], (e3, created) => {
+          db.close();
+          if (e3) return res.status(500).json({ error: e3.message });
+          return res.status(201).json(created);
+        });
+      }
+    );
   });
 });
 
@@ -263,6 +376,135 @@ app.post('/api/admin/login', (req, res) => {
   });
 });
 
+// Admin: categorías
+// Listar todas (incluye inactivas)
+app.get('/api/admin/categories', authenticateToken, (req, res) => {
+  const db = getDatabase();
+  const sql = `
+    SELECT c.*, (
+      SELECT COUNT(*) FROM products p WHERE p.category_id = c.id
+    ) AS product_count
+    FROM categories c
+    ORDER BY c.name
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    db.close();
+    res.json(rows);
+  });
+});
+
+// Crear nueva categoría
+app.post('/api/admin/categories', authenticateToken, (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Nombre requerido' });
+  }
+  const db = getDatabase();
+  db.run('INSERT INTO categories (name, active) VALUES (?, 1)', [name.trim()], function(err) {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    const id = this.lastID;
+    db.get('SELECT * FROM categories WHERE id = ?', [id], (e2, row) => {
+      db.close();
+      if (e2) return res.status(500).json({ error: e2.message });
+      res.status(201).json(row);
+    });
+  });
+});
+
+// Activar/Desactivar categoría (sin borrar)
+app.put('/api/admin/categories/:id/active', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { active } = req.body;
+  if (typeof active !== 'boolean') {
+    return res.status(400).json({ error: 'Campo active debe ser boolean' });
+  }
+  const db = getDatabase();
+  db.run('UPDATE categories SET active = ? WHERE id = ?', [active ? 1 : 0, id], function(err) {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      db.close();
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+    db.get('SELECT * FROM categories WHERE id = ?', [id], (e2, row) => {
+      db.close();
+      if (e2) return res.status(500).json({ error: e2.message });
+      res.json(row);
+    });
+  });
+});
+
+// Renombrar categoría
+app.put('/api/admin/categories/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Nombre requerido' });
+  }
+  const db = getDatabase();
+  db.run('UPDATE categories SET name = ? WHERE id = ?', [name.trim(), id], function(err) {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      db.close();
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+    db.get('SELECT * FROM categories WHERE id = ?', [id], (e2, row) => {
+      db.close();
+      if (e2) return res.status(500).json({ error: e2.message });
+      res.json(row);
+    });
+  });
+});
+
+// Eliminar categoría si está inactiva y sin productos
+app.delete('/api/admin/categories/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const db = getDatabase();
+  db.get('SELECT active FROM categories WHERE id = ?', [id], (err, cat) => {
+    if (err) {
+      db.close();
+      return res.status(500).json({ error: err.message });
+    }
+    if (!cat) {
+      db.close();
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+    if (cat.active === 1) {
+      db.close();
+      return res.status(400).json({ error: 'Debe desactivar la categoría antes de eliminarla' });
+    }
+    db.get('SELECT COUNT(*) AS cnt FROM products WHERE category_id = ?', [id], (e2, row) => {
+      if (e2) {
+        db.close();
+        return res.status(500).json({ error: e2.message });
+      }
+      if ((row?.cnt || 0) > 0) {
+        db.close();
+        return res.status(400).json({ error: 'No se puede eliminar: hay productos asociados' });
+      }
+      db.run('DELETE FROM categories WHERE id = ?', [id], function(e3) {
+        db.close();
+        if (e3) {
+          return res.status(500).json({ error: e3.message });
+        }
+        return res.json({ success: true });
+      });
+    });
+  });
+});
+
 // Obtener todas las órdenes
 app.get('/api/admin/orders', authenticateToken, (req, res) => {
   const db = getDatabase();
@@ -334,22 +576,33 @@ app.get('/api/admin/stats', authenticateToken, (req, res) => {
   });
 });
 
-// Listado de clientes agregados desde órdenes
+// Listado de clientes (incluye registrados sin órdenes) con métricas
 app.get('/api/admin/customers', authenticateToken, (req, res) => {
   const db = getDatabase();
   const query = `
+    WITH order_stats AS (
+      SELECT 
+        LOWER(customer_email) AS email_key,
+        COUNT(*) AS orders,
+        SUM(total) AS total_spent,
+        MIN(created_at) AS first_order,
+        MAX(created_at) AS last_order
+      FROM orders
+      WHERE customer_email IS NOT NULL AND customer_email <> ''
+      GROUP BY LOWER(customer_email)
+    )
     SELECT 
-      LOWER(customer_email) AS email,
-      MAX(customer_name) AS customer_name,
-      MAX(customer_lastname) AS customer_lastname,
-      COUNT(*) AS orders,
-      SUM(total) AS total_spent,
-      MIN(created_at) AS first_order,
-      MAX(created_at) AS last_order
-    FROM orders
-    WHERE customer_email IS NOT NULL AND customer_email <> ''
-    GROUP BY LOWER(customer_email)
-    ORDER BY total_spent DESC
+      c.id,
+      c.email,
+      c.customer_name,
+      c.customer_lastname,
+      COALESCE(os.orders, 0) AS orders,
+      COALESCE(os.total_spent, 0) AS total_spent,
+      os.first_order,
+      os.last_order
+    FROM customers c
+    LEFT JOIN order_stats os ON LOWER(c.email) = os.email_key
+    ORDER BY (os.total_spent IS NULL), os.total_spent DESC, c.created_at DESC
   `;
 
   db.all(query, [], (err, rows) => {
@@ -449,30 +702,70 @@ app.delete('/api/admin/orders/:id', authenticateToken, (req, res) => {
 // Obtener todos los productos (admin)
 app.get('/api/admin/products', authenticateToken, (req, res) => {
   const db = getDatabase();
-  const query = `
-    SELECT p.*, c.name as category_name,
-           GROUP_CONCAT(pi.image_path) as images
-    FROM products p
-    LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN product_images pi ON p.id = pi.product_id
-    GROUP BY p.id
-    ORDER BY p.created_at DESC
-  `;
-  
-  db.all(query, [], (err, rows) => {
+  db.get(`SELECT value FROM settings WHERE key = 'exchange_rate'`, [], (er, row) => {
+    if (er) {
+      db.close();
+      return res.status(500).json({ error: er.message });
+    }
+    const exchangeRate = parseFloat(row?.value || '1') || 1;
+    const query = `
+      SELECT p.*,
+             GROUP_CONCAT(DISTINCT pi.image_path) AS images,
+             GROUP_CONCAT(DISTINCT c.name) AS category_names,
+             GROUP_CONCAT(DISTINCT c.id) AS category_ids
+      FROM products p
+      LEFT JOIN product_images pi ON p.id = pi.product_id
+      LEFT JOIN product_categories pc ON pc.product_id = p.id
+      LEFT JOIN categories c ON c.id = pc.category_id
+      GROUP BY p.id
+      ORDER BY p.created_at DESC
+    `;
+    
+    db.all(query, [], (err, rows) => {
+      if (err) {
+        db.close();
+        return res.status(500).json({ error: err.message });
+      }
+      
+      const products = rows.map(product => ({
+        ...product,
+        images: product.images ? product.images.split(',') : [],
+        category_names: product.category_names ? product.category_names.split(',') : [],
+        category_ids: product.category_ids ? product.category_ids.split(',').map(id => parseInt(id, 10)) : [],
+        price_ars: product.price ? Number(product.price) * exchangeRate : null,
+        original_price_ars: product.original_price ? Number(product.original_price) * exchangeRate : null
+      }));
+      
+      db.close();
+      res.json(products);
+    });
+  });
+});
+
+// Settings: obtener/actualizar exchange rate
+app.get('/api/admin/settings/exchange-rate', authenticateToken, (req, res) => {
+  const db = getDatabase();
+  db.get(`SELECT value FROM settings WHERE key = 'exchange_rate'`, [], (err, row) => {
+    db.close();
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ exchange_rate: parseFloat(row?.value || '1') || 1 });
+  });
+});
+
+app.put('/api/admin/settings/exchange-rate', authenticateToken, (req, res) => {
+  const { exchange_rate } = req.body;
+  const rate = parseFloat(exchange_rate);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    return res.status(400).json({ error: 'exchange_rate inválido' });
+  }
+  const db = getDatabase();
+  db.run(`UPDATE settings SET value = ? WHERE key = 'exchange_rate'`, [String(rate)], function(err) {
     if (err) {
       db.close();
-      res.status(500).json({ error: err.message });
-      return;
+      return res.status(500).json({ error: err.message });
     }
-    
-    const products = rows.map(product => ({
-      ...product,
-      images: product.images ? product.images.split(',') : []
-    }));
-    
     db.close();
-    res.json(products);
+    res.json({ exchange_rate: rate });
   });
 });
 
@@ -568,6 +861,43 @@ app.put('/api/admin/products/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Actualizar categorías asociadas a un producto (reemplaza todas)
+app.put('/api/admin/products/:id/categories', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { category_ids } = req.body;
+  if (!Array.isArray(category_ids)) {
+    return res.status(400).json({ error: 'category_ids debe ser un array' });
+  }
+  const ids = [...new Set(category_ids.map(n => parseInt(n, 10)).filter(n => Number.isInteger(n)))];
+  const db = getDatabase();
+  db.serialize(() => {
+    db.run('DELETE FROM product_categories WHERE product_id = ?', [id], function(err) {
+      if (err) {
+        db.close();
+        return res.status(500).json({ error: err.message });
+      }
+      if (ids.length === 0) {
+        db.close();
+        return res.json({ message: 'Categorías actualizadas' });
+      }
+      let completed = 0;
+      ids.forEach((catId) => {
+        db.run('INSERT OR IGNORE INTO product_categories (product_id, category_id) VALUES (?, ?)', [id, catId], function(e2) {
+          if (e2) {
+            db.close();
+            return res.status(500).json({ error: e2.message });
+          }
+          completed++;
+          if (completed === ids.length) {
+            db.close();
+            return res.json({ message: 'Categorías actualizadas' });
+          }
+        });
+      });
+    });
+  });
+});
+
 // Eliminar producto
 app.delete('/api/admin/products/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
@@ -608,6 +938,48 @@ app.get('/api/admin/uploads', authenticateToken, (req, res) => {
       .filter((file) => imageExtensions.has(path.extname(file).toLowerCase()))
       .map((file) => `/uploads/${file}`);
     res.json(images);
+  });
+});
+
+// Listado paginado con miniaturas
+app.get('/api/admin/uploads/list', authenticateToken, (req, res) => {
+  const { page = '1', limit = '40', q = '' } = req.query;
+  const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || 40, 1), 200);
+  const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+
+  fs.readdir(uploadsDir, (err, files) => {
+    if (err) {
+      return res.status(500).json({ error: 'No se pudieron leer las imágenes' });
+    }
+
+    // Excluir carpeta de thumbs y archivos no imagen
+    let images = files.filter((file) => {
+      if (file === 'thumbs') return false;
+      return imageExtensions.has(path.extname(file).toLowerCase());
+    });
+
+    // Filtro por query (nombre)
+    const query = String(q).toLowerCase().trim();
+    if (query) {
+      images = images.filter((f) => f.toLowerCase().includes(query));
+    }
+
+    // Orden por nombre descendente (aprox. por fecha si nombres contienen timestamps)
+    images.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+
+    const total = images.length;
+    const start = (pageNum - 1) * limitNum;
+    const end = start + limitNum;
+    const slice = images.slice(start, end);
+
+    const items = slice.map((file) => ({
+      filename: file,
+      original: `/uploads/${file}`,
+      thumb: `/uploads/thumbs/${file}`
+    }));
+
+    res.json({ items, total, page: pageNum, limit: limitNum });
   });
 });
 

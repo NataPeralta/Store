@@ -116,28 +116,28 @@ const OrderManagement = () => {
             {orders.map((order) => (
               <li key={order.id}>
                 <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-medium truncate" style={{ color: 'var(--primary)' }}>
                           Orden #{order.id}
                         </p>
-                        <div className="ml-2 flex-shrink-0 flex">
+                        <div className="sm:ml-2 flex-shrink-0 flex">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
                             {getStatusText(order.status)}
                           </span>
                         </div>
                       </div>
-                      <div className="mt-2 sm:flex sm:justify-between">
-                        <div className="sm:flex">
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:items-center">
+                        <div className="sm:flex sm:items-center">
                           <p className="flex items-center text-sm text-gray-500">
                             <span className="font-medium">{order.customer_name} {order.customer_lastname}</span>
                           </p>
-                          <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
+                          <p className="mt-1 sm:mt-0 sm:ml-6 flex items-center text-sm text-gray-500 break-all">
                             📧 {order.customer_email}
                           </p>
                         </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <div className="sm:justify-end flex items-center text-sm text-gray-500">
                           <p>
                             Total: <span className="font-semibold">${order.total?.toLocaleString()}</span>
                           </p>
@@ -154,11 +154,11 @@ const OrderManagement = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="ml-4 flex-shrink-0 flex space-x-2">
+                    <div className="md:ml-4 flex-shrink-0 flex space-x-2">
                       <select
                         value={order.status}
                         onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
+                        className="text-sm border border-gray-300 rounded px-2 py-1 max-w-full"
                       >
                         <option value="pending">Pendiente</option>
                         <option value="processing">En Proceso</option>

@@ -85,9 +85,11 @@ const ProductCard = ({ product }) => {
           {product.name}
         </h3>
         
-        {product.category_name && (
+        {((Array.isArray(product.category_names) && product.category_names.length > 0) || product.category_name) && (
           <p className="text-sm text-gray-500 mb-2">
-            {product.category_name}
+            {Array.isArray(product.category_names) && product.category_names.length > 0
+              ? product.category_names.join(', ')
+              : product.category_name}
           </p>
         )}
 
@@ -112,11 +114,11 @@ const ProductCard = ({ product }) => {
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
-              ${product.price?.toLocaleString()}
+              {`USD ${product.price?.toLocaleString()}${(typeof product.price_ars !== 'undefined' && product.price_ars !== null) ? ` / ARS ${product.price_ars.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
             </p>
             {product.original_price && product.original_price > product.price && (
               <p className="text-sm text-gray-500 line-through">
-                ${product.original_price?.toLocaleString()}
+                {`USD ${product.original_price?.toLocaleString()}${(typeof product.original_price_ars !== 'undefined' && product.original_price_ars !== null) ? ` / ARS ${product.original_price_ars.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
               </p>
             )}
           </div>

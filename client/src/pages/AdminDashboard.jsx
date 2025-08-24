@@ -5,6 +5,8 @@ import ProductManagement from '../components/admin/ProductManagement'
 import OrderManagement from '../components/admin/OrderManagement'
 import AdminStats from '../components/admin/AdminStats'
 import Customers from '../components/admin/Customers'
+import AdminCategories from '../components/admin/AdminCategories'
+import AdminSettings from '../components/admin/AdminSettings'
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('stats')
@@ -46,12 +48,12 @@ const AdminDashboard = () => {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center py-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
               <p className="text-sm text-gray-600">Bienvenido, {user.username}</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               <a
                 href="/"
                 className="text-sm hover:opacity-90"
@@ -72,8 +74,8 @@ const AdminDashboard = () => {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-gray-200 mb-6 overflow-x-auto">
+          <nav className="-mb-px flex space-x-6 min-w-max">
             <button
               onClick={() => setActiveTab('stats')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -114,6 +116,26 @@ const AdminDashboard = () => {
             >
               Clientes
             </button>
+            <button
+              onClick={() => setActiveTab('categories')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'categories'
+                  ? 'border-[var(--primary)] text-[var(--primary)]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Categorías
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'settings'
+                  ? 'border-[var(--primary)] text-[var(--primary)]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Ajustes
+            </button>
           </nav>
         </div>
 
@@ -123,6 +145,8 @@ const AdminDashboard = () => {
           {activeTab === 'orders' && <OrderManagement />}
           {activeTab === 'products' && <ProductManagement />}
           {activeTab === 'customers' && <Customers />}
+          {activeTab === 'categories' && <AdminCategories />}
+          {activeTab === 'settings' && <AdminSettings />}
         </div>
       </div>
     </div>
