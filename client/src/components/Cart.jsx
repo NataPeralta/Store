@@ -26,10 +26,11 @@ const Cart = ({ onClose, onCheckout }) => {
         
         const validation = items.map(item => {
           const currentProduct = currentProducts.find(p => p.id === item.id)
+          const isActive = currentProduct?.active === true || currentProduct?.active === 1
           return {
             ...item,
             currentStock: currentProduct?.stock || 0,
-            isAvailable: currentProduct?.stock > 0 && currentProduct?.active === 1,
+            isAvailable: currentProduct?.stock > 0 && isActive,
             productExists: !!currentProduct
           }
         })
@@ -39,8 +40,37 @@ const Cart = ({ onClose, onCheckout }) => {
         // Eliminar productos no disponibles automáticamente
         const unavailableItems = validation.filter(item => !item.isAvailable)
         if (unavailableItems.length > 0) {
-          unavailableItems.forEach(item => removeItem(item.id))
-          alert(`Se eliminaron ${unavailableItems.length} producto(s) sin stock del carrito`)
+            unavailableItems.forEach(item => {
+            const currentProduct = currentProducts.find(p => p.id === item.id)
+            if (currentProduct?.stock <= 0) {
+              alert(`❌ Producto ${item.name} eliminado: Sin stock (stock: ${currentProduct?.stock})`)
+            } else if (!(currentProduct?.active === true || currentProduct?.active === 1)) {
+              alert(`❌ Producto ${item.name} eliminado: No está activo (active: ${currentProduct?.active})`)
+            }
+            removeItem(item.id)
+          })
+          
+          const stockItems = unavailableItems.filter(item => {
+            const currentProduct = currentProducts.find(p => p.id === item.id)
+            return currentProduct?.stock <= 0
+          })
+          
+          const inactiveItems = unavailableItems.filter(item => {
+            const currentProduct = currentProducts.find(p => p.id === item.id)
+            return currentProduct?.stock > 0 && !(currentProduct?.active === true || currentProduct?.active === 1)
+          })
+          
+          let message = ''
+          if (stockItems.length > 0) {
+            message += `${stockItems.length} producto(s) sin stock`
+          }
+          if (inactiveItems.length > 0) {
+            if (message) message += ' y '
+            message += `${inactiveItems.length} producto(s) no disponibles`
+          }
+          message += ' fueron eliminados del carrito'
+          
+          alert(message)
         }
       } catch (error) {
         console.error('Error validando stock:', error)
@@ -50,7 +80,7 @@ const Cart = ({ onClose, onCheckout }) => {
     }
 
     validateStock()
-  }, [items, removeItem])
+  }, []) // Solo se ejecuta cuando se monta el componente
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -93,9 +123,13 @@ const Cart = ({ onClose, onCheckout }) => {
                   <div className="flex-shrink-0">
                     {item.images && item.images.length > 0 ? (
                       <img
-                        src={item.images[0]}
+                        src={`/uploads/${item.images[0].gallery?.previewPath || item.images[0]}`}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded"
+                        onError={(e) => {
+                          console.error('Error loading cart image:', item.images[0])
+                          e.target.src = '/placeholder-image.jpg'
+                        }}
                       />
                     ) : (
                       <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">

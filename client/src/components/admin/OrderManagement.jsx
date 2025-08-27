@@ -12,7 +12,7 @@ const OrderManagement = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('/api/admin/orders')
+      const response = await axios.get('/api/orders')
       setOrders(response.data)
     } catch (error) {
       setError('Error al cargar las órdenes')
@@ -24,7 +24,7 @@ const OrderManagement = () => {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.put(`/api/admin/orders/${orderId}/status`, { status: newStatus })
+      await axios.put(`/api/orders/${orderId}/status`, { status: newStatus })
       fetchOrders() // Recargar órdenes
     } catch (error) {
       setError('Error al actualizar el estado de la orden')
@@ -38,7 +38,7 @@ const OrderManagement = () => {
     }
 
     try {
-      await axios.delete(`/api/admin/orders/${orderId}`)
+      await axios.delete(`/api/orders/${orderId}`)
       fetchOrders() // Recargar órdenes
     } catch (error) {
       setError('Error al eliminar la orden')
@@ -50,6 +50,8 @@ const OrderManagement = () => {
     switch (status) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800'
+      case 'quoted':
+        return 'bg-blue-100 text-blue-800'
       case 'processing':
         return 'bg-purple-100 text-purple-800'
       case 'shipped':
@@ -67,6 +69,8 @@ const OrderManagement = () => {
     switch (status) {
       case 'pending':
         return 'Pendiente'
+      case 'quoted':
+        return 'Citado'
       case 'processing':
         return 'En Proceso'
       case 'shipped':
@@ -131,10 +135,10 @@ const OrderManagement = () => {
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:items-center">
                         <div className="sm:flex sm:items-center">
                           <p className="flex items-center text-sm text-gray-500">
-                            <span className="font-medium">{order.customer_name} {order.customer_lastname}</span>
+                            <span className="font-medium">{order.customerName} {order.customerLastname}</span>
                           </p>
                           <p className="mt-1 sm:mt-0 sm:ml-6 flex items-center text-sm text-gray-500 break-all">
-                            📧 {order.customer_email}
+                            📧 {order.customerEmail}
                           </p>
                         </div>
                         <div className="sm:justify-end flex items-center text-sm text-gray-500">
@@ -145,12 +149,21 @@ const OrderManagement = () => {
                       </div>
                       <div className="mt-2">
                         <p className="text-sm text-gray-500">
-                          Productos: {order.products || 'Sin productos'}
+                          Productos: {Array.isArray(order.products) 
+                            ? order.products.map(product => product.name).join(', ')
+                            : 'Sin productos'
+                          }
                         </p>
                       </div>
                       <div className="mt-2">
                         <p className="text-sm text-gray-500">
-                          Fecha: {new Date(order.created_at).toLocaleDateString('es-ES')}
+                          Fecha: {order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'Fecha no disponible'}
                         </p>
                       </div>
                     </div>
@@ -161,6 +174,7 @@ const OrderManagement = () => {
                         className="text-sm border border-gray-300 rounded px-2 py-1 max-w-full"
                       >
                         <option value="pending">Pendiente</option>
+                        <option value="quoted">Citado</option>
                         <option value="processing">En Proceso</option>
                         <option value="shipped">Enviado</option>
                         <option value="delivered">Entregado</option>

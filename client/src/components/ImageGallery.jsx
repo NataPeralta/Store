@@ -72,7 +72,7 @@ const ImageGallery = ({ images, initialIndex = 0, onClose }) => {
         {/* Imagen principal */}
         <div className="w-full h-full flex items-center justify-center">
           <img 
-            src={images[currentIndex]} 
+            src={`/uploads/${images[currentIndex]}`} 
             alt={`Imagen ${currentIndex + 1}`}
             className="max-w-full max-h-full object-contain"
             style={{ 
@@ -80,6 +80,10 @@ const ImageGallery = ({ images, initialIndex = 0, onClose }) => {
               maxWidth: 'calc(100vw - 4rem)'
             }}
             onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              console.error('Error loading gallery image:', images[currentIndex])
+              e.target.src = '/placeholder-image.jpg'
+            }}
           />
         </div>
 
@@ -109,7 +113,7 @@ const ImageGallery = ({ images, initialIndex = 0, onClose }) => {
             {images.map((img, index) => (
               <img
                 key={index}
-                src={img}
+                src={`/uploads/${img}`}
                 alt={`Miniatura ${index + 1}`}
                 className={`w-16 h-16 object-cover rounded cursor-pointer border-2 ${
                   index === currentIndex ? 'border-white' : 'border-transparent'
@@ -117,6 +121,10 @@ const ImageGallery = ({ images, initialIndex = 0, onClose }) => {
                 onClick={(e) => {
                   e.stopPropagation()
                   setCurrentIndex(index)
+                }}
+                onError={(e) => {
+                  console.error('Error loading thumbnail:', img)
+                  e.target.src = '/placeholder-image.jpg'
                 }}
               />
             ))}

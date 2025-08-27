@@ -25,6 +25,10 @@ const Store = () => {
     const storedEmail = localStorage.getItem('customerEmail')
     if (!storedEmail) {
       setShowEmailModal(true)
+    } else {
+      // Notificar al backend que el usuario se conectó
+      axios.post('/api/customers/update-connection', { email: storedEmail })
+        .catch(error => console.error('Error updating connection:', error))
     }
     const token = localStorage.getItem('adminToken')
     const user = localStorage.getItem('adminUser')
@@ -44,7 +48,7 @@ const Store = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/categories')
+      const response = await axios.get('/api/categories/active')
       setCategories(response.data)
     } catch (error) {
       console.error('Error fetching categories:', error)
@@ -53,10 +57,12 @@ const Store = () => {
 
   const filteredProducts = selectedCategory === 'all'
     ? products
-    : products.filter(product => Array.isArray(product.category_ids)
-      ? product.category_ids.includes(parseInt(selectedCategory))
-      : product.category_id === parseInt(selectedCategory)
-    )
+    : products.filter(product => {
+        if (!Array.isArray(product.categories)) {
+          return false
+        }
+        return product.categories.some(cat => cat.categoryId === parseInt(selectedCategory))
+      })
 
   if (loading) {
     return (

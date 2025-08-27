@@ -16,27 +16,33 @@ const ProductCard = ({ product }) => {
   }
 
   const openImageGallery = () => {
-    
     if (product.images && product.images.length > 0) {  
       setGalleryInitialIndex(0)
       setShowGallery(true)
     }
   }
 
+  // Transformar imágenes al formato que espera ImageGallery
+  const transformedImages = product.images ? product.images.map(img => img.gallery.imagePath) : []
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow grid grid-rows-[auto,_1fr]">
       {/* Imagen del producto */}
       <div className="aspect-w-1 aspect-h-1 w-full relative">
         {product.images && product.images.length > 0 ? (
           <>
             <img
-              src={product.images[0]}
+              src={`/uploads/${product.images[0].gallery.previewPath}`}
               alt={product.name}
               className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
                 openImageGallery()
+              }}
+              onError={(e) => {
+                console.error('Error loading image:', product.images[0].gallery.previewPath)
+                e.target.src = '/placeholder-image.jpg'
               }}
             />
             {/* Indicador de múltiples imágenes */}
@@ -72,7 +78,8 @@ const ProductCard = ({ product }) => {
       </div>
 
       {/* Información del producto */}
-      <div className="p-4">
+      <div className="p-4 grid grid-rows-[1fr_repeat(2,_auto)]">
+        <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {product.name}
         </h3>
@@ -102,17 +109,13 @@ const ProductCard = ({ product }) => {
             Talle: {product.size}
           </p>
         )}
+        </div>
 
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
               {`USD ${product.price?.toLocaleString()}${(typeof product.price_ars !== 'undefined' && product.price_ars !== null) ? ` / ARS ${product.price_ars.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
             </p>
-            {product.original_price && product.original_price > product.price && (
-              <p className="text-sm text-gray-500 line-through">
-                {`USD ${product.original_price?.toLocaleString()}${(typeof product.original_price_ars !== 'undefined' && product.original_price_ars !== null) ? ` / ARS ${product.original_price_ars.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}`}
-              </p>
-            )}
           </div>
         </div>
 
@@ -135,14 +138,12 @@ const ProductCard = ({ product }) => {
       </div>
       
       {/* Galería de imágenes */}
-      {showGallery && product.images && product.images.length > 0 && (
-        <>
-          <ImageGallery
-            images={product.images}
-            initialIndex={galleryInitialIndex}
-            onClose={() => setShowGallery(false)}
-          />
-        </>
+      {showGallery && transformedImages.length > 0 && (
+        <ImageGallery
+          images={transformedImages}
+          initialIndex={galleryInitialIndex}
+          onClose={() => setShowGallery(false)}
+        />
       )}
     </div>
   )

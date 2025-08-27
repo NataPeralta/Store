@@ -10,7 +10,7 @@ const Customers = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const { data } = await axios.get('/api/admin/customers')
+        const { data } = await axios.get('/api/customers')
         setCustomers(data)
       } catch (e) {
         setError('No se pudieron cargar los clientes')
@@ -25,7 +25,7 @@ const Customers = () => {
     if (!window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
     try {
       setDeletingId(id)
-      await axios.delete(`/api/admin/customers/${id}`)
+      await axios.delete(`/api/customers/${id}`)
       setCustomers(prev => prev.filter(c => c.id !== id))
     } catch (e) {
       alert(e.response?.data?.error || 'No se pudo eliminar el cliente')
@@ -57,14 +57,32 @@ const Customers = () => {
           <li key={c.email} className="px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">{c.customer_name} {c.customer_lastname}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{c.customerName} {c.customerLastname}</p>
                 <p className="text-sm text-gray-500 break-all">{c.email}</p>
               </div>
               <div className="sm:ml-4 text-left sm:text-right text-sm text-gray-600 flex items-center gap-4">
                 <p>Órdenes: <span className="font-semibold">{c.orders}</span></p>
                 <p>Total gastado: <span className="font-semibold">${(c.total_spent || 0).toLocaleString()}</span></p>
-                <p className="text-xs text-gray-400">Primera: {new Date(c.first_order).toLocaleDateString('es-ES')}</p>
-                <p className="text-xs text-gray-400">Última: {new Date(c.last_order).toLocaleDateString('es-ES')}</p>
+                {c.firstConnection && (
+                  <p className="text-xs text-gray-400">
+                    Primera conexión: {new Date(c.firstConnection).toLocaleDateString('es-ES')}
+                  </p>
+                )}
+                {c.lastConnection && (
+                  <p className="text-xs text-gray-400">
+                    Última conexión: {new Date(c.lastConnection).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                  </p>
+                )}
+                {c.first_order && (
+                  <p className="text-xs text-gray-400">
+                    Primera orden: {new Date(c.first_order).toLocaleDateString('es-ES')}
+                  </p>
+                )}
+                {c.last_order && (
+                  <p className="text-xs text-gray-400">
+                    Última orden: {new Date(c.last_order).toLocaleDateString('es-ES')}
+                  </p>
+                )}
                 {c.orders === 0 && (
                   <button
                     onClick={() => handleDelete(c.id)}

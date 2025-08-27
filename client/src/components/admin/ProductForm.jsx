@@ -4,10 +4,9 @@ import axios from 'axios'
 const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
     name: '',
-    category_id: '',
     description: '',
     brand: '',
-    original_price: '',
+    originalPrice: '',
     margin: '',
     price: '',
     size: '',
@@ -31,23 +30,22 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
     if (product) {
       setFormData({
         name: product.name || '',
-        category_id: product.category_id || '',
         description: product.description || '',
         brand: product.brand || '',
-        original_price: product.original_price || '',
+        originalPrice: product.originalPrice || '',
         margin: product.margin || '',
         price: product.price || '',
         size: product.size || '',
         stock: product.stock || '',
         active: product.active
       })
-      if (Array.isArray(product.category_ids)) {
-        setSelectedCategoryIds(product.category_ids)
+      if (Array.isArray(product.categories)) {
+        setSelectedCategoryIds(product.categories.map(cat => cat.categoryId))
       }
       // Cargar imágenes existentes del producto para edición
-      const currentImages = Array.isArray(product.images) ? product.images : []
-      setSelectedExistingImages(currentImages)
-      setPrimaryImage(currentImages[0] || '')
+      const currentImageIds = Array.isArray(product.images) ? product.images.map(img => img.gallery.id) : []
+      setSelectedExistingImages(currentImageIds)
+      setPrimaryImage(currentImageIds[0] || '')
     }
   }, [product])
 
@@ -56,7 +54,7 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
     const loadRate = async () => {
       try {
         const token = localStorage.getItem('adminToken')
-        const resp = await axios.get('/api/admin/settings/exchange-rate', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        const resp = await axios.get('/api/settings/exchange-rate', token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
         setExchangeRate(resp.data?.exchange_rate || 1)
       } catch {}
     }
@@ -64,12 +62,12 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
     const loadUploads = async () => {
       try {
         const token = localStorage.getItem('adminToken')
-        const resp = await axios.get('/api/admin/uploads/list', {
+        const resp = await axios.get('/api/gallery', {
           params: { page: 1, limit: uploadsLimit },
           headers: { Authorization: `Bearer ${token}` },
         })
         const { items, total } = resp.data || { items: [], total: 0 }
-        setAvailableImages(items)
+        setAvailableImages(items || [])
         setUploadsTotal(total)
         setUploadsPage(1)
       } catch (e) {
@@ -81,7 +79,7 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
-    if (name === 'original_price' || name === 'margin' || name === 'price') {
+    if (name === 'originalPrice' || name === 'margin' || name === 'price') {
       const toNumber = (v) => {
         if (v === '' || v === null || typeof v === 'undefined') return NaN
         const n = parseFloat(String(v).replace(',', '.'))
@@ -90,11 +88,11 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
       const round2 = (n) => Math.round(n * 100) / 100
 
       const next = { ...formData, [name]: value }
-      const original = name === 'original_price' ? toNumber(value) : toNumber(next.original_price)
+      const original = name === 'originalPrice' ? toNumber(value) : toNumber(next.originalPrice)
       const margin = name === 'margin' ? toNumber(value) : toNumber(next.margin)
       const price = name === 'price' ? toNumber(value) : toNumber(next.price)
 
-      if (name === 'original_price' || name === 'margin') {
+      if (name === 'originalPrice' || name === 'margin') {
         if (!Number.isNaN(original) && original > 0 && !Number.isNaN(margin)) {
           const computedPrice = round2(original * (1 + margin / 100))
           next.price = String(computedPrice)
@@ -147,64 +145,71 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
       
       // Agregar datos del formulario
       Object.keys(formData).forEach(key => {
-        if (formData[key] !== '') {
-          formDataToSend.append(key, formData[key])
+        // Para campos numéricos, enviar incluso si están vacíos o son 0
+        if (key === 'originalPrice' || key === 'margin' || key === 'price' || key === 'stock') {
+          formDataToSend.append(key, formData[key] || '')
+        } else {
+
+          formDataToSend.append(key, formData[key] || '')
         }
       })
 
-      // Agregar imágenes
-      images.forEach(image => {
-        formDataToSend.append('images', image)
+      // Agregar categorías seleccionadas (siempre enviar, incluso si está vacío)
+      if (selectedCategoryIds.length > 0) {
+        selectedCategoryIds.forEach(categoryId => {
+          formDataToSend.append('category_ids', categoryId)
+        })
+      } else {
+        // Enviar un campo vacío para indicar que se deben eliminar todas las categorías
+        formDataToSend.append('category_ids', '')
+      }
+      
+      // Agregar imágenes seleccionadas (siempre enviar, incluso si está vacío)
+      if (selectedExistingImages.length > 0) {
+        selectedExistingImages.forEach(imageId => {
+          formDataToSend.append('image_ids', imageId)
+        })
+      } else {
+        // Enviar un campo vacío para indicar que se deben eliminar todas las imágenes
+        formDataToSend.append('image_ids', '')
+      }
+      
+      if (primaryImage) {
+        formDataToSend.append('primary_image', primaryImage)
+      }
+      // Subir imágenes nuevas a la galería primero
+      const uploadedImageIds = []
+      if (images.length > 0) {
+        for (const image of images) {
+          const formDataImage = new FormData()
+          formDataImage.append('image', image)
+          
+          const token = localStorage.getItem('adminToken')
+          const uploadResp = await axios.post('/api/gallery/upload', formDataImage, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          
+          if (uploadResp.data?.id) {
+            uploadedImageIds.push(uploadResp.data.id)
+          }
+        }
+      }
+
+      // Agregar IDs de imágenes subidas a la galería
+      uploadedImageIds.forEach(imageId => {
+        formDataToSend.append('image_ids', imageId)
       })
 
       if (product) {
-        // Actualizar datos del producto
-        await axios.put(`/api/admin/products/${product.id}`, formData)
-        // Actualizar categorías múltiples
-        try {
-          const token = localStorage.getItem('adminToken')
-          await axios.put(
-            `/api/admin/products/${product.id}/categories`,
-            { category_ids: selectedCategoryIds },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-        } catch (e) {
-          console.error('Error updating product categories:', e)
-        }
-        // Si se eligieron imágenes existentes o principal, actualizar asociaciones
-        if (selectedExistingImages.length > 0) {
-          const token = localStorage.getItem('adminToken')
-          await axios.put(
-            `/api/admin/products/${product.id}/images`,
-            { images: selectedExistingImages, primary: primaryImage },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-        }
-        // Si se suben archivos nuevos, adjuntarlas al producto existente
-        if (images.length > 0) {
-          const token = localStorage.getItem('adminToken')
-          const fd = new FormData()
-          images.forEach(image => fd.append('images', image))
-          await axios.post(`/api/admin/products/${product.id}/images/upload`, fd, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        }
+        // Actualizar datos del producto con FormData
+        await axios.put(`/api/products/${product.id}`, formDataToSend, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
+        })
       } else {
         // Crear nuevo producto
-        const createResp = await axios.post('/api/admin/products', formDataToSend)
+        const createResp = await axios.post('/api/products', formDataToSend)
         const newId = createResp.data?.productId
-        if (newId && selectedCategoryIds.length > 0) {
-          try {
-            const token = localStorage.getItem('adminToken')
-            await axios.put(
-              `/api/admin/products/${newId}/categories`,
-              { category_ids: selectedCategoryIds },
-              { headers: { Authorization: `Bearer ${token}` } }
-            )
-          } catch (e) {
-            console.error('Error setting categories for new product:', e)
-          }
-        }
+        // Para productos nuevos, las categorías e imágenes se manejan en el createProduct
       }
 
       onSuccess()
@@ -311,8 +316,8 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
               <input
                 type="number"
                 step="0.01"
-                name="original_price"
-                value={formData.original_price}
+                name="originalPrice"
+                value={formData.originalPrice}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
               />
@@ -367,7 +372,18 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                   const rate = Number(exchangeRate || 1)
                   if (Number.isFinite(ars) && rate > 0) {
                     const usd = Math.round((ars / rate) * 100) / 100
-                    handleInputChange({ target: { name: 'price', value: String(usd) } })
+                    // Recalcular margen basado en precio original
+                    const original = parseFloat(formData.originalPrice || 0)
+                    if (original > 0) {
+                      const computedMargin = Math.round(((usd / original) - 1) * 100 * 100) / 100
+                      setFormData(prev => ({
+                        ...prev,
+                        price: String(usd),
+                        margin: String(computedMargin)
+                      }))
+                    } else {
+                      setFormData(prev => ({ ...prev, price: String(usd) }))
+                    }
                   }
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[var(--primary)] focus:border-[var(--primary)]"
@@ -407,22 +423,22 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Imágenes existentes en servidor (uploads)
             </label>
-            {availableImages.length === 0 ? (
+            {(availableImages || []).length === 0 ? (
               <p className="text-sm text-gray-500">No hay imágenes disponibles en <code className="px-1 bg-gray-100 rounded">/server/uploads</code>.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {availableImages.map((item) => {
-                  const selected = selectedExistingImages.includes(item.original)
-                  const isPrimary = primaryImage === item.original
+                {(availableImages || []).map((item) => {
+                  const selected = selectedExistingImages.includes(item.id)
+                  const isPrimary = primaryImage === item.id
                   return (
-                    <div key={item.original} className={`relative border rounded p-2 ${selected ? 'border-[var(--primary)]' : 'border-gray-200'}`}>
+                    <div key={item.id} className={`relative border rounded p-2 ${selected ? 'border-[var(--primary)]' : 'border-gray-200'}`}>
                       <img src={item.thumb} alt="img" loading="lazy" className="w-full h-24 object-cover rounded" />
                       <div className="mt-2 flex items-center justify-between">
                         <label className="text-xs flex items-center space-x-1 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selected}
-                            onChange={() => toggleExistingImage(item.original)}
+                            onChange={() => toggleExistingImage(item.id)}
                           />
                           <span>Usar</span>
                         </label>
@@ -432,7 +448,7 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                             name="primaryImage"
                             disabled={!selected}
                             checked={isPrimary}
-                            onChange={() => setPrimaryImage(item.original)}
+                            onChange={() => setPrimaryImage(item.id)}
                           />
                           <span>Principal</span>
                         </label>
@@ -442,7 +458,7 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                 })}
               </div>
             )}
-            {availableImages.length < uploadsTotal && (
+            {(availableImages || []).length < uploadsTotal && (
               <div className="mt-3">
                 <button
                   type="button"
@@ -451,12 +467,12 @@ const ProductForm = ({ product, categories, onSuccess, onCancel }) => {
                       setLoadingUploads(true)
                       const token = localStorage.getItem('adminToken')
                       const next = uploadsPage + 1
-                      const resp = await axios.get('/api/admin/uploads/list', {
+                      const resp = await axios.get('/api/gallery', {
                         params: { page: next, limit: uploadsLimit },
                         headers: { Authorization: `Bearer ${token}` },
                       })
                       const { items } = resp.data || { items: [] }
-                      setAvailableImages(prev => [...prev, ...items])
+                      setAvailableImages(prev => [...(prev || []), ...(items || [])])
                       setUploadsPage(next)
                     } finally {
                       setLoadingUploads(false)

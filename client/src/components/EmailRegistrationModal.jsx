@@ -41,14 +41,14 @@ const EmailRegistrationModal = ({ onClose, onSaved }) => {
       setLoading(true)
       const resp = await axios.post('/api/customers/register-or-get', {
         email,
-        customer_name: name,
-        customer_lastname: lastname
+        customerName: name,
+        customerLastname: lastname
       })
       const customer = resp.data
       localStorage.setItem('customerId', String(customer.id))
       localStorage.setItem('customerEmail', customer.email)
-      localStorage.setItem('customerName', customer.customer_name || name)
-      localStorage.setItem('customerLastname', customer.customer_lastname || lastname)
+      localStorage.setItem('customerName', customer.customerName || name)
+      localStorage.setItem('customerLastname', customer.customerLastname || lastname)
       onSaved(customer)
     } catch (er) {
       setError(er.response?.data?.error || 'Error registrando cliente')

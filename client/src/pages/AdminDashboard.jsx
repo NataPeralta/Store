@@ -7,6 +7,7 @@ import AdminStats from '../components/admin/AdminStats'
 import Customers from '../components/admin/Customers'
 import AdminCategories from '../components/admin/AdminCategories'
 import AdminSettings from '../components/admin/AdminSettings'
+import GalleryManagement from '../components/admin/GalleryManagement'
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('stats')
@@ -127,6 +128,16 @@ const AdminDashboard = () => {
               Categorías
             </button>
             <button
+              onClick={() => setActiveTab('gallery')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'gallery'
+                  ? 'border-[var(--primary)] text-[var(--primary)]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Galería
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'settings'
@@ -146,6 +157,7 @@ const AdminDashboard = () => {
           {activeTab === 'products' && <ProductManagement />}
           {activeTab === 'customers' && <Customers />}
           {activeTab === 'categories' && <AdminCategories />}
+          {activeTab === 'gallery' && <GalleryManagement />}
           {activeTab === 'settings' && <AdminSettings />}
         </div>
       </div>

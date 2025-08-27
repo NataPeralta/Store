@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import ProductForm from './ProductForm'
+import BulkImport from './BulkImport'
 
 const ProductManagement = () => {
   const [products, setProducts] = useState([])
-  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-
+  const [categories, setCategories] = useState([])
+  
   useEffect(() => {
     fetchProducts()
     fetchCategories()
@@ -19,13 +21,22 @@ const ProductManagement = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/api/admin/products')
+      const response = await axios.get('/api/products/admin')
       setProducts(response.data)
     } catch (error) {
       setError('Error al cargar los productos')
       console.error('Error fetching products:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/api/categories/active')
+      setCategories(response.data)
+    } catch (error) {
+      console.error('Error fetching categories:', error)
     }
   }
 
@@ -41,10 +52,8 @@ const ProductManagement = () => {
   // Categorías disponibles según búsqueda por nombre
   const availableCategoryIds = new Set()
   nameFilteredProducts.forEach((p) => {
-    if (Array.isArray(p.category_ids)) {
-      p.category_ids.forEach((id) => availableCategoryIds.add(id))
-    } else if (p.category_id) {
-      availableCategoryIds.add(p.category_id)
+    if (Array.isArray(p.categories)) {
+      p.categories.forEach((cat) => availableCategoryIds.add(cat.categoryId))
     }
   })
   const filteredCategoryOptions = categories.filter((c) => availableCategoryIds.has(c.id))
@@ -61,18 +70,11 @@ const ProductManagement = () => {
   const filteredProducts = nameFilteredProducts.filter((p) => {
     if (selectedCategory === 'all') return true
     const catId = parseInt(selectedCategory)
-    if (Array.isArray(p.category_ids)) return p.category_ids.includes(catId)
-    return p.category_id === catId
-  })
-
-  const fetchCategories = async () => {
-    try {
-      const response = await axios.get('/api/categories')
-      setCategories(response.data)
-    } catch (error) {
-      console.error('Error fetching categories:', error)
+    if (Array.isArray(p.categories)) {
+      return p.categories.some(cat => cat.categoryId === catId)
     }
-  }
+    return false
+  })
 
   const handleEdit = (product) => {
     setEditingProduct(product)
@@ -85,7 +87,7 @@ const ProductManagement = () => {
     }
 
     try {
-      await axios.delete(`/api/admin/products/${productId}`)
+      await axios.delete(`/api/products/${productId}`)
       fetchProducts()
     } catch (error) {
       setError('Error al eliminar el producto')
@@ -99,9 +101,14 @@ const ProductManagement = () => {
     fetchProducts()
   }
 
+  const handleBulkImportSuccess = () => {
+    setShowBulkImport(false)
+    fetchProducts()
+  }
+
   const toggleProductStatus = async (productId, currentStatus) => {
     try {
-      await axios.put(`/api/admin/products/${productId}`, {
+      await axios.put(`/api/products/${productId}`, {
         active: !currentStatus
       })
       fetchProducts()
@@ -109,11 +116,6 @@ const ProductManagement = () => {
       setError('Error al actualizar el estado del producto')
       console.error('Error updating product status:', error)
     }
-  }
-
-  const getThumbUrl = (imagePath) => {
-    if (!imagePath) return ''
-    return imagePath.replace('/uploads/', '/uploads/thumbs/')
   }
 
   if (loading) {
@@ -147,6 +149,12 @@ const ProductManagement = () => {
             ))}
           </select>
           <button
+            onClick={() => setShowBulkImport(true)}
+            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            📥 Importar Masivo
+          </button>
+          <button
             onClick={() => setShowForm(true)}
             className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
           >
@@ -160,7 +168,7 @@ const ProductManagement = () => {
           {error}
         </div>
       )}
-
+      
       {filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No hay productos disponibles.</p>
@@ -176,7 +184,7 @@ const ProductManagement = () => {
                     <div className="flex-shrink-0 sm:mr-4">
                       {Array.isArray(product.images) && product.images.length > 0 ? (
                         <img
-                          src={getThumbUrl(product.images[0])}
+                          src={`/uploads/${product.images[0].gallery.previewPath}`}
                           alt={product.name}
                           className="w-28 h-28 object-cover rounded border"
                         />
@@ -201,30 +209,32 @@ const ProductManagement = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-2 sm:flex sm:justify-between">
-                        <div className="sm:flex">
-                          <p className="flex items-center text-sm text-gray-500">
-                            Categorías: {Array.isArray(product.category_names) && product.category_names.length > 0 ? product.category_names.join(', ') : (product.category_name || 'Sin categoría')}
-                          </p>
-                          <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                            Marca: {product.brand || 'Sin marca'}
-                          </p>
-                        </div>
-                        <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 space-x-4">
-                          <p>
-                            Precio USD: <span className="font-semibold">${product.price?.toLocaleString()}</span>
-                          </p>
-                          {typeof product.price_ars !== 'undefined' && product.price_ars !== null && (
-                            <p>
-                              Precio ARS: <span className="font-semibold">{product.price_ars.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</span>
+                      <div className="mt-2 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-6">
+                            <p className="text-sm text-gray-500">
+                              <span className="font-medium">Categorías:</span> {Array.isArray(product.categories) && product.categories.length > 0 ? product.categories.map(cat => cat.category.name).join(', ') : 'Sin categoría'}
                             </p>
-                          )}
+                            <p className="text-sm text-gray-500">
+                              <span className="font-medium">Marca:</span> {product.brand || 'Sin marca'}
+                            </p>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                            <p className="text-sm text-gray-500">
+                              <span className="font-medium">Precio USD:</span> <span className="font-semibold">${product.price?.toLocaleString()}</span>
+                            </p>
+                            {typeof product.price_ars !== 'undefined' && product.price_ars !== null && (
+                              <p className="text-sm text-gray-500">
+                                <span className="font-medium">Precio ARS:</span> <span className="font-semibold">{product.price_ars.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</span>
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          Stock: {product.stock} unidades
-                        </p>
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <p className="text-sm text-gray-500">
+                            <span className="font-medium">Stock:</span> {product.stock} unidades
+                          </p>
+                        </div>
                       </div>
                       {product.description && (
                         <div className="mt-2">
@@ -234,7 +244,14 @@ const ProductManagement = () => {
                         </div>
                       )}
                     </div>
-                    <div className="sm:ml-4 flex-shrink-0 flex space-x-2 order-last sm:order-none">
+                    <div className="sm:ml-4 flex-shrink-0 flex flex-col order-last sm:order-none gap-2 ">
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="text-sm font-medium hover:opacity-90 border rounded-md px-2 py-1"
+                        style={{ color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                      >
+                        Editar
+                      </button>
                       <button
                         onClick={() => toggleProductStatus(product.id, product.active)}
                         className={`text-sm px-3 py-1 rounded ${
@@ -246,15 +263,8 @@ const ProductManagement = () => {
                         {product.active ? 'Desactivar' : 'Activar'}
                       </button>
                       <button
-                        onClick={() => handleEdit(product)}
-                        className="text-sm font-medium hover:opacity-90"
-                        style={{ color: 'var(--primary)' }}
-                      >
-                        Editar
-                      </button>
-                      <button
                         onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-900 text-sm font-medium"
+                        className="text-red-600 hover:text-red-900 text-sm font-medium border border-red-600 rounded-md px-2 py-1"
                       >
                         Eliminar
                       </button>
@@ -277,6 +287,14 @@ const ProductManagement = () => {
             setShowForm(false)
             setEditingProduct(null)
           }}
+        />
+      )}
+
+      {/* Modal de bulk import */}
+      {showBulkImport && (
+        <BulkImport
+          onSuccess={handleBulkImportSuccess}
+          onCancel={() => setShowBulkImport(false)}
         />
       )}
     </div>

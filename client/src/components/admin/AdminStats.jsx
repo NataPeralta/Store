@@ -18,7 +18,7 @@ const AdminStats = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { data } = await axios.get('/api/admin/stats')
+        const { data } = await axios.get('/api/stats')
         setStats(data)
       } catch (e) {
         setError('No se pudieron cargar las estadísticas')

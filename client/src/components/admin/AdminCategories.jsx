@@ -16,7 +16,7 @@ const AdminCategories = () => {
 
   const fetchCategories = async () => {
     try {
-      const resp = await axios.get('/api/admin/categories', { headers: getAuthHeaders() })
+      const resp = await axios.get('/api/categories', { headers: getAuthHeaders() })
       setCategories(resp.data || [])
     } catch (e) {
       if (e?.response?.status === 401 || e?.response?.status === 403) {
@@ -43,7 +43,7 @@ const AdminCategories = () => {
     try {
       setLoading(true)
       setError('')
-      await axios.post('/api/admin/categories', { name: name.trim() }, { headers: getAuthHeaders() })
+      await axios.post('/api/categories', { name: name.trim() }, { headers: getAuthHeaders() })
       setName('')
       await fetchCategories()
     } catch (e) {
@@ -67,7 +67,7 @@ const AdminCategories = () => {
     try {
       setLoading(true)
       setError('')
-      await axios.put(`/api/admin/categories/${id}/active`, { active: !currentActive }, { headers: getAuthHeaders() })
+      await axios.put(`/api/categories/${id}/status`, { active: !currentActive }, { headers: getAuthHeaders() })
       await fetchCategories()
     } catch (e) {
       if (e?.response?.status === 401 || e?.response?.status === 403) {
@@ -142,7 +142,7 @@ const AdminCategories = () => {
                             try {
                               setLoading(true)
                               setError('')
-                              await axios.put(`/api/admin/categories/${cat.id}`, { name: newName }, { headers: getAuthHeaders() })
+                              await axios.put(`/api/categories/${cat.id}/name`, { name: newName }, { headers: getAuthHeaders() })
                               setEditingId(null)
                               setEditingName('')
                               await fetchCategories()
@@ -204,7 +204,7 @@ const AdminCategories = () => {
                         try {
                           setLoading(true)
                           setError('')
-                          await axios.delete(`/api/admin/categories/${cat.id}`, { headers: getAuthHeaders() })
+                          await axios.delete(`/api/categories/${cat.id}`, { headers: getAuthHeaders() })
                           await fetchCategories()
                         } catch (e) {
                           if (e?.response?.status === 401 || e?.response?.status === 403) {
@@ -223,6 +223,7 @@ const AdminCategories = () => {
                       }}
                       disabled={loading || cat.active || (cat.product_count ?? 0) > 0}
                       className={`ml-2 px-3 py-1 rounded border ${cat.active || (cat.product_count ?? 0) > 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 border-red-300 text-red-700'}`}
+                      title={cat.active ? 'Desactive la categoría primero' : (cat.product_count ?? 0) > 0 ? 'No se puede eliminar una categoría con productos' : 'Eliminar categoría'}
                     >
                       Eliminar
                     </button>

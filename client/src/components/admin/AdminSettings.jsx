@@ -11,7 +11,7 @@ const AdminSettings = () => {
     try {
       setLoading(true)
       setError('')
-      const resp = await axios.get('/api/admin/settings/exchange-rate')
+      const resp = await axios.get('/api/settings/exchange-rate')
       setExchangeRate(String(resp.data?.exchange_rate ?? ''))
     } catch (e) {
       setError('No se pudo cargar el tipo de cambio')
@@ -30,13 +30,16 @@ const AdminSettings = () => {
       setLoading(true)
       setError('')
       setSuccess('')
+      
       const rate = parseFloat(exchangeRate)
+      
       if (!Number.isFinite(rate) || rate <= 0) {
         setError('Ingrese un número válido (> 0)')
         setLoading(false)
         return
       }
-      await axios.put('/api/admin/settings/exchange-rate', { exchange_rate: rate })
+      
+      await axios.put('/api/settings/exchange-rate', { exchange_rate: rate })
       setSuccess('Tipo de cambio actualizado')
     } catch (e) {
       setError(e?.response?.data?.error || 'No se pudo guardar el tipo de cambio')
