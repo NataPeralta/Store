@@ -15,3 +15,17 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Estilos base Tailwind */
+@layer base {
+  /* Gradiente para TODOS los botones */
+  button {
+    background-image: linear-gradient(to left, var(--primary-40), var(--primary));
+  }
+
+  /* Redefinir el color de texto negro a #131200 sin afectar bg-black */
+  .text-black {
+    --tw-text-opacity: 1;
+    color: rgb(19 18 0 / var(--tw-text-opacity)); /* #131200 */
+  }
+}
