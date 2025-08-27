@@ -173,6 +173,111 @@ class AdminServicePrisma {
       throw error;
     }
   }
+
+  // ===================== Métodos compatibles con AdminController =====================
+  // Login: devolver solo el usuario; el token lo genera el controller
+  static async authenticateAdmin(username, password) {
+    const result = await AdminServicePrisma.authenticateUser(username, password);
+    return result.user;
+  }
+
+  // Crear admin (map a createAdminUser)
+  static async createAdmin(data) {
+    return AdminServicePrisma.createAdminUser(data);
+  }
+
+  // Obtener admin por ID (map)
+  static async getAdminById(id) {
+    try {
+      return await AdminServicePrisma.getAdminUserById(id);
+    } catch (error) {
+      if (error.message && error.message.includes('no encontrado')) {
+        throw new Error('Usuario admin no encontrado');
+      }
+      throw error;
+    }
+  }
+
+  // Listar admins (map)
+  static async getAllAdmins() {
+    return AdminServicePrisma.getAllAdminUsers();
+  }
+
+  // Eliminar admin (map)
+  static async deleteAdmin(id) {
+    try {
+      return await AdminServicePrisma.deleteAdminUser(id);
+    } catch (error) {
+      if (error.code === 'P2025' || (error.message && error.message.includes('no encontrado'))) {
+        throw new Error('Usuario admin no encontrado');
+      }
+      throw error;
+    }
+  }
+
+  // Actualizar admin: permite actualizar username y/o password
+  static async updateAdmin(id, data) {
+    try {
+      const updateData = {};
+      if (typeof data.username === 'string' && data.username.trim() !== '') {
+        updateData.username = data.username.trim();
+      }
+      if (typeof data.password === 'string' && data.password.length >= 6) {
+        const hashed = await bcrypt.hash(data.password, 10);
+        updateData.password = hashed;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return { message: 'Sin cambios para actualizar' };
+      }
+
+      await prisma.adminUser.update({
+        where: { id: parseInt(id) },
+        data: updateData
+      });
+
+      return { message: 'Usuario actualizado exitosamente' };
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new Error('Usuario admin no encontrado');
+      }
+      if (error.code === 'P2002') {
+        throw new Error('El nombre de usuario ya existe');
+      }
+      throw error;
+    }
+  }
+
+  // Cambiar contraseña validando la actual
+  static async changePassword(id, currentPassword, newPassword) {
+    try {
+      const user = await prisma.adminUser.findUnique({
+        where: { id: parseInt(id) }
+      });
+
+      if (!user) {
+        throw new Error('Usuario admin no encontrado');
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isValid) {
+        throw new Error('Contraseña incorrecta');
+      }
+
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await prisma.adminUser.update({
+        where: { id: user.id },
+        data: { password: hashed }
+      });
+
+      return { message: 'Contraseña actualizada exitosamente' };
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new Error('Usuario admin no encontrado');
+      }
+      throw error;
+    }
+  }
 }
 
 module.exports = AdminServicePrisma;

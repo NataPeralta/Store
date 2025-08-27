@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    host: true,
+    allowedHosts: ['www.nataconyaz.store', 'nataconyaz.store'],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
