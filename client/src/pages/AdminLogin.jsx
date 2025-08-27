@@ -115,13 +115,6 @@ const AdminLogin = () => {
           </div>
         </form>
 
-        <div className="mt-6 bg-gray-50 p-4 rounded-md">
-          <p className="text-sm text-gray-600 text-center">
-            <strong>Credenciales por defecto:</strong><br />
-            Usuario: admin<br />
-            Contraseña: admin123
-          </p>
-        </div>
       </div>
     </div>
   )
